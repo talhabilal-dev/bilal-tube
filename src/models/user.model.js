@@ -3,7 +3,7 @@ import argon from "argon2";
 
 const userSchema = new Schema(
   {
-    username: {
+    userName: {
       type: String,
       required: true,
       unique: true,

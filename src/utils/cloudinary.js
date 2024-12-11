@@ -1,3 +1,7 @@
+import { configDotenv } from "dotenv";
+configDotenv({
+  path: "./.env",
+});
 import { v2 as cloudinary } from "cloudinary";
 import fs from "fs";
 
@@ -7,12 +11,13 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
-export const cloudinaryUpload = async (localFilePath, public_id) => {
+export const cloudinaryUpload = async (localFilePath) => {
   try {
     const response = await cloudinary.uploader.upload(localFilePath, {
-      public_id,
       resource_type: "auto",
     });
+    fs.unlinkSync(localFilePath);
+    return response.secure_url;
   } catch (error) {
     fs.unlinkSync(localFilePath);
     console.log(error);
