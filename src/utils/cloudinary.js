@@ -24,3 +24,12 @@ export const cloudinaryUpload = async (localFilePath) => {
     return null;
   }
 };
+
+export const cloudinaryDelete = async (cloudinaryFilePath) => {
+  try {
+    const result = await cloudinary.uploader.destroy(cloudinaryFilePath);
+    console.log("Image deleted successfully:", result);
+  } catch (error) {
+    console.error("Error deleting image:", error);
+  }
+};

@@ -1,9 +1,10 @@
 import { Router } from "express";
 import { registerUser } from "../controllers/auth.controllers.js";
 import { upload } from "../middlewares/multer.middleware.js";
-import { authMiddleware } from "../middlewares/auth.middleware.js"
+import { authMiddleware } from "../middlewares/auth.middleware.js";
 import { logOutUser } from "../controllers/auth.controllers.js";
 import { loginUser } from "../controllers/auth.controllers.js";
+import { refreshAccessToken } from "../controllers/auth.controllers.js";
 
 const router = Router();
 
@@ -23,5 +24,6 @@ router.route("/register").post(
 
 router.route("/login").post(loginUser);
 router.route("/logout").get(authMiddleware, logOutUser);
+router.route("/refresh-token").post(refreshAccessToken);
 
 export default router;

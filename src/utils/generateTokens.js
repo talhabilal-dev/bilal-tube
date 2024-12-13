@@ -25,5 +25,3 @@ export const generateRefreshToken = (user) => {
     }
   );
 };
-
-
