@@ -1,10 +1,15 @@
 import { User } from "../models/user.model.js";
-import { cloudinaryUpload, cloudinaryDelete } from "../utils/cloudinary.js";
+import {
+  cloudinaryUpload,
+  cloudinaryDelete,
+  extractPublicId,
+} from "../utils/cloudinary.js";
 import jwt from "jsonwebtoken";
 import {
   generateAccessToken,
   generateRefreshToken,
 } from "../utils/generateTokens.js";
+import { response } from "express";
 export const registerUser = async (req, res) => {
   try {
     const { userName, email, fullName, password } = req.body;
@@ -76,6 +81,7 @@ export const registerUser = async (req, res) => {
       user: checkUser,
     });
   } catch (error) {
+    console.log(error);
     res.status(500).json({
       message: "Internal server error",
     });
@@ -127,7 +133,7 @@ export const loginUser = async (req, res) => {
 
     delete userWithoutPassword.password;
     delete userWithoutPassword.refreshToken;
-    console.log(userWithoutPassword);
+    // console.log(userWithoutPassword);
     res
       .status(200)
       .cookie("accessToken", accessToken, options)
@@ -311,6 +317,7 @@ export const updateAccountDetails = async (req, res) => {
 export const updateAvatar = async (req, res) => {
   try {
     const avatarLocalPath = req.file.path;
+    console.log(avatarLocalPath);
 
     if (!avatarLocalPath) {
       return res.status(400).json({
@@ -318,14 +325,16 @@ export const updateAvatar = async (req, res) => {
       });
     }
 
-    const newAvatar = await cloudinaryUpload(req.user.avatar);
+    const public_id = extractPublicId(req.user.avatar);
+    const newAvatar = await cloudinaryUpload(avatarLocalPath);
 
     if (!newAvatar) {
       return res.status(500).json({
         message: "Error updating the avatar!",
       });
     }
-    const deleteAvatar = await cloudinaryDelete(req.user.avatar);
+    // console.log(public_id)
+    const deleteAvatar = await cloudinaryDelete(public_id);
 
     const user = await User.findByIdAndUpdate(
       req.user._id,
@@ -340,6 +349,7 @@ export const updateAvatar = async (req, res) => {
       user,
     });
   } catch (error) {
+    console.log(error);
     res.status(500).json({
       message: "Internal server error",
     });
@@ -356,14 +366,16 @@ export const updateCoverImage = async (req, res) => {
       });
     }
 
-    const newCoverImage = await cloudinaryUpload(req.user.coverImage);
+    const newCoverImage = await cloudinaryUpload(coverImageLocalPath);
+
+    const public_id = extractPublicId(req.user.coverImage);
 
     if (!newCoverImage) {
       return res.status(500).json({
         message: "Error updating the CoverImage!",
       });
     }
-    const deleteCoverImage = await cloudinaryDelete(req.user.coverImage);
+    const deleteCoverImage = await cloudinaryDelete(public_id);
 
     const user = await User.findByIdAndUpdate(
       req.user._id,
@@ -382,4 +394,78 @@ export const updateCoverImage = async (req, res) => {
       message: "Internal server error",
     });
   }
+};
+
+export const getUserChannelProfile = async (req, res) => {
+  const { username } = req.params;
+
+  if (!username?.trim()) {
+    return response.status(400).json({
+      message: "username is missing.",
+    });
+  }
+
+  const channel = await User.aggregate([
+    {
+      $match: {
+        username: username?.toLowerCase(),
+      },
+    },
+    {
+      $lookup: {
+        from: "subscriptions",
+        localField: "_id",
+        foreignField: "channel",
+        as: "subscribers",
+      },
+    },
+    {
+      $lookup: {
+        from: "subscriptions",
+        localField: "_id",
+        foreignField: "subscriber",
+        as: "subscribedTo",
+      },
+    },
+    {
+      $addFields: {
+        subscribersCount: {
+          $size: "$subscribers",
+        },
+        channelsSubscribedToCount: {
+          $size: "$subscribedTo",
+        },
+        isSubscribed: {
+          $cond: {
+            if: { $in: [req.user?._id, "$subscribers.subscriber"] },
+            then: true,
+            else: false,
+          },
+        },
+      },
+    },
+    {
+      $project: {
+        fullName: 1,
+        username: 1,
+        subscribersCount: 1,
+        channelsSubscribedToCount: 1,
+        isSubscribed: 1,
+        avatar: 1,
+        coverImage: 1,
+        email: 1,
+      },
+    },
+  ]);
+
+  if (!channel?.length) {
+    return response.status(404).json({
+      message: "Channel not found.",
+    });
+  }
+
+  return res.status(200).json({
+    message: "User fetched successfully.",
+    channel,
+  });
 };

@@ -17,12 +17,17 @@ export const cloudinaryUpload = async (localFilePath) => {
       resource_type: "auto",
     });
     fs.unlinkSync(localFilePath);
+
     return response.secure_url;
   } catch (error) {
     fs.unlinkSync(localFilePath);
     console.log(error);
     return null;
   }
+};
+export const extractPublicId = (url) => {
+  let publicIdWithExtension = url.substring(url.lastIndexOf("/") + 1);
+  return publicIdWithExtension.replace(/\.[^/.]+$/, "");
 };
 
 export const cloudinaryDelete = async (cloudinaryFilePath) => {
