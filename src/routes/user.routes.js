@@ -1,15 +1,17 @@
 import { Router } from "express";
-import { registerUser } from "../controllers/auth.controllers.js";
+import {
+  registerUser,
+  changePassword,
+  getCurrentUser,
+  logOutUser,
+  updateAvatar,
+  updateCoverImage,
+  loginUser,
+  getWatchHistory,
+  refreshAccessToken,
+} from "../controllers/user.controller.js";
 import { upload } from "../middlewares/multer.middleware.js";
 import { authMiddleware } from "../middlewares/auth.middleware.js";
-import { changePassword } from "../controllers/auth.controllers.js";
-import { getCurrentUser } from "../controllers/auth.controllers.js";
-import { logOutUser } from "../controllers/auth.controllers.js";
-import { updateAvatar } from "../controllers/auth.controllers.js";
-import { updateCoverImage } from "../controllers/auth.controllers.js";
-import { loginUser } from "../controllers/auth.controllers.js";
-import { refreshAccessToken } from "../controllers/auth.controllers.js";
-
 const router = Router();
 
 router.route("/register").post(
@@ -36,5 +38,5 @@ router
 router
   .route("/updateCoverImage")
   .post(upload.single("coverImage"), authMiddleware, updateCoverImage);
-
+router.route("/watchHistory").get(authMiddleware, getWatchHistory);
 export default router;

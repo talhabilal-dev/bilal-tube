@@ -3,5 +3,10 @@
     "bracketSpacing": true,
     "tabWidth": 2,
     "trailingComma": "es5",
-    "semi": true
+    "semi": true,
+    "arrowParens": "always",
+    "printWidth": 80,
+    "endOfLine": "lf",
+    "quoteProps": "as-needed",
+    "embeddedLanguageFormatting": "auto"
 }
