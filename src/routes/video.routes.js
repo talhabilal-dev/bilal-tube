@@ -7,10 +7,11 @@ import {
   getVideoById,
   updateVideo,
   togglePublishStatus,
+  deleteVideo,
 } from "../controllers/video.controller.js";
 
 const router = Router();
-router.use(verifyJWT);
+router.use(authMiddleware);
 
 router.route("/").post(
   authMiddleware,

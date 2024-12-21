@@ -3,7 +3,7 @@ import argon from "argon2";
 
 const userSchema = new Schema(
   {
-    userName: {
+    username: {
       type: String,
       required: true,
       unique: true,
@@ -25,11 +25,12 @@ const userSchema = new Schema(
       index: true,
     },
     avatar: {
-      type: String, // cloudinary url
-      required: true,
+      url: { type: String, required: true },
+      public_id: { type: String, required: true },
     },
     coverImage: {
-      type: String, // cloudinary url
+      url: { type: String, required: true },
+      public_id: { type: String, required: true },
     },
     watchHistory: [
       {

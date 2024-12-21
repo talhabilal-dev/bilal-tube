@@ -5,8 +5,13 @@ export class ApiError extends Error {
     errors = [],
     stack = ""
   ) {
+    const validStatusCode =
+      typeof statusCode === "number" && statusCode >= 100 && statusCode <= 599
+        ? statusCode
+        : 500;
+
     super(message);
-    this.statusCode = statusCode;
+    this.statusCode = validStatusCode;
     this.data = null;
     this.message = message;
     this.success = false;

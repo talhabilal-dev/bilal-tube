@@ -5,7 +5,7 @@ export const generateAccessToken = (user) => {
     {
       _id: user._id,
       email: user.email,
-      userName: user.userName,
+      username: user.username,
     },
     process.env.ACCESS_TOKEN_SECRET,
     {

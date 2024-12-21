@@ -39,4 +39,5 @@ router
   .route("/updateCoverImage")
   .post(upload.single("coverImage"), authMiddleware, updateCoverImage);
 router.route("/watchHistory").get(authMiddleware, getWatchHistory);
+
 export default router;
