@@ -1,4 +1,5 @@
 import { User } from "../models/user.model.js";
+import mongoose, { isValidObjectId } from "mongoose";
 import { ApiError } from "../utils/ApiError.js";
 import {
   cloudinaryUpload,
@@ -10,82 +11,118 @@ import {
   generateRefreshToken,
 } from "../utils/generateTokens.js";
 
+/**
+ * Registers a new user by creating a user account with provided details.
+ * Validates input fields and checks for existing users with the same
+ * username or email. Uploads avatar and cover image to a cloud storage
+ * service. Handles errors during registration and ensures cleanup of 
+ * uploaded files in case of failure.
+ *
+ * @param {Object} req - Express request object, containing user details
+ * and files for avatar and cover image.
+ * @param {Object} res - Express response object, used to send the 
+ * registration status and user details.
+ * @param {Function} next - Express next middleware function, called in 
+ * case of an error.
+ *
+ * @throws {ApiError} 400 - If any required field is missing or if a user
+ * with the same username or email already exists.
+ * @throws {ApiError} 500 - If there is an error uploading the avatar or 
+ * cover image.
+ */
+
 export const registerUser = async (req, res, next) => {
+  let avatar = null;
+  let coverImage = null;
+
   try {
-    try {
-      const { username, email, fullName, password } = req.body;
+    const { username, email, fullName, password } = req.body;
 
-      if (
-        [username, email, fullName, password].some(
-          (field) => field?.trim() === ""
-        )
-      ) {
-        throw new ApiError(400, "All fields are required");
-      }
-
-      const existingUser = await User.findOne({
-        $or: [{ username }, { email }],
-      });
-
-      if (existingUser) {
-        throw new ApiError(
-          400,
-          `User with username ${username} or email ${email} already exists.`
-        );
-      }
-
-      const avatarLocalPath = req.files?.avatar?.[0]?.path;
-      const coverImageLocalPath = req.files?.coverImage?.[0]?.path;
-
-      if (!avatarLocalPath) {
-        throw new ApiError(400, "Avatar is required");
-      }
-
-      const [avatar, coverImage] = await Promise.all([
-        cloudinaryUpload(avatarLocalPath),
-        cloudinaryUpload(coverImageLocalPath),
-      ]);
-
-      if (!avatar) {
-        throw new ApiError(500, "Error uploading avatar");
-      }
-
-      if (!coverImage) {
-        throw new ApiError(500, "Error uploading coverImage");
-      }
-
-      const newUser = await User.create({
-        username,
-        email,
-        fullName,
-        password,
-        avatar: { url: avatar.secure_url, public_id: avatar.public_id },
-        coverImage: {
-          url: coverImage.secure_url,
-          public_id: coverImage.public_id,
-        },
-      });
-
-      const checkUser = await User.findById(newUser._id).select(
-        "-password -refreshToken"
-      );
-
-      res.status(201).json({
-        message: "User created successfully",
-        user: checkUser,
-      });
-    } catch (error) {
-      await Promise.all([
-        deleteFileFromCloudinary(avatar?.public_id),
-        deleteFileFromCloudinary(coverImage?.public_id),
-      ]);
-
-      throw error;
+    if (
+      [username, email, fullName, password].some(
+        (field) => field?.trim() === ""
+      )
+    ) {
+      throw new ApiError(400, "All fields are required");
     }
+
+    const existingUser = await User.findOne({
+      $or: [{ username }, { email }],
+    });
+
+    if (existingUser) {
+      throw new ApiError(
+        400,
+        `User with username ${username} or email ${email} already exists.`
+      );
+    }
+
+    const avatarLocalPath = req.files?.avatar?.[0]?.path;
+    const coverImageLocalPath = req.files?.coverImage?.[0]?.path;
+
+    if (!avatarLocalPath) {
+      throw new ApiError(400, "Avatar is required");
+    }
+
+    [avatar, coverImage] = await Promise.all([
+      cloudinaryUpload(avatarLocalPath),
+      cloudinaryUpload(coverImageLocalPath),
+    ]);
+
+    if (!avatar) {
+      throw new ApiError(500, "Error uploading avatar");
+    }
+
+    if (!coverImage) {
+      throw new ApiError(500, "Error uploading coverImage");
+    }
+
+    const newUser = await User.create({
+      username,
+      email,
+      fullName,
+      password,
+      avatar: { url: avatar.secure_url, public_id: avatar.public_id },
+      coverImage: {
+        url: coverImage.secure_url,
+        public_id: coverImage.public_id,
+      },
+    });
+
+    const checkUser = await User.findById(newUser._id).select(
+      "-password -refreshToken"
+    );
+
+    res.status(201).json({
+      message: "User created successfully",
+      user: checkUser,
+    });
   } catch (error) {
+    if (avatar?.public_id) {
+      await deleteFileFromCloudinary(avatar.public_id);
+    }
+    if (coverImage?.public_id) {
+      await deleteFileFromCloudinary(coverImage.public_id);
+    }
     next(error);
   }
 };
+
+/**
+ * Authenticates a user with the provided email and password, generating
+ * access and refresh tokens if successful. Updates the user's record
+ * with the new refresh token and sends both tokens as HTTP-only cookies
+ * in the response.
+ *
+ * @param {Object} req - Express request object containing email and
+ * password in the body.
+ * @param {Object} res - Express response object used to send the login
+ * status, tokens, and user information.
+ *
+ * @throws {ApiError} 400 - If email or password is missing.
+ * @throws {ApiError} 401 - If the credentials are invalid.
+ * @throws {ApiError} 500 - For any other errors during the login process.
+ */
 
 export const loginUser = async (req, res) => {
   try {
@@ -140,6 +177,17 @@ export const loginUser = async (req, res) => {
   }
 };
 
+/**
+ * Logs out the user by removing the refresh token from the user's
+ * record and clearing the access and refresh tokens from the request.
+ *
+ * @param {Object} req - Express request object containing the user's
+ * information in the user object.
+ * @param {Object} res - Express response object used to send the logout
+ * status.
+ *
+ * @throws {ApiError} 500 - For any errors during the logout process.
+ */
 export const logOutUser = async (req, res) => {
   try {
     await User.findByIdAndUpdate(
@@ -171,6 +219,19 @@ export const logOutUser = async (req, res) => {
   }
 };
 
+/**
+ * Refreshes an access token using the provided refresh token. Checks if the
+ * incoming refresh token matches the one stored in the user's record and
+ * generates a new access and refresh token if the check passes.
+ *
+ * @param {Object} req - Express request object containing the refresh token
+ * in the body or as a cookie.
+ * @param {Object} res - Express response object used to send the refreshed
+ * access and refresh tokens.
+ *
+ * @throws {ApiError} 401 - If the refresh token is invalid or unauthorized.
+ * @throws {ApiError} 500 - For any other errors during the refresh process.
+ */
 export const refreshAccessToken = async (req, res) => {
   try {
     const incomingRefreshToken =
@@ -224,6 +285,20 @@ export const refreshAccessToken = async (req, res) => {
   }
 };
 
+/**
+ * Changes the password of the logged in user by validating the old password
+ * and updating the user's record with the new password.
+ *
+ * @param {Object} req - Express request object containing the old and new
+ * passwords in the body.
+ * @param {Object} res - Express response object used to send the change
+ * password status.
+ *
+ * @throws {ApiError} 404 - If the user is not found.
+ * @throws {ApiError} 401 - If the old password is invalid or unauthorized.
+ * @throws {ApiError} 500 - For any other errors during the change password
+ * process.
+ */
 export const changePassword = async (req, res) => {
   try {
     const { oldPassword, currentPassword } = req.body;
@@ -252,6 +327,15 @@ export const changePassword = async (req, res) => {
   }
 };
 
+/**
+ * Returns the logged in user's details.
+ *
+ * @param {Object} req - Express request object containing the user's details.
+ * @param {Object} res - Express response object used to send the user's
+ * details.
+ *
+ * @throws {ApiError} 500 - For any other errors during the user fetch process.
+ */
 export const getCurrentUser = async (req, res) => {
   try {
     return res.status(200).json({
@@ -264,6 +348,18 @@ export const getCurrentUser = async (req, res) => {
   }
 };
 
+/**
+ * Updates the account details of the logged in user.
+ *
+ * @param {Object} req - Express request object containing the updated account
+ * details in the body.
+ * @param {Object} res - Express response object used to send the updated user's
+ * details.
+ *
+ * @throws {ApiError} 400 - If any of the required fields are missing or empty.
+ * @throws {ApiError} 500 - For any other errors during the account update
+ * process.
+ */
 export const updateAccountDetails = async (req, res) => {
   try {
     const { username, fullName, email } = req.body;
@@ -296,41 +392,68 @@ export const updateAccountDetails = async (req, res) => {
   }
 };
 
-export const updateAvatar = async (req, res) => {
-  try {
-    const avatarLocalPath = req.file.path;
+/**
+ * Updates the avatar of the authenticated user.
+ *
+ * This function handles the upload of a new avatar to Cloudinary, deletes the
+ * old avatar, and updates the user's avatar information in the database.
+ *
+ * @param {Object} req - Express request object, containing the user's file
+ * path and user information.
+ * @param {Object} res - Express response object used to send the status of
+ * the avatar update.
+ *
+ * @throws {ApiError} 400 - If the avatar file is missing.
+ * @throws {ApiError} 500 - For errors during avatar upload, deletion, or
+ * database update process.
+ */
 
-    if (!avatarLocalPath) {
+export const updateAvatar = async (req, res) => {
+  let newAvatar = null;
+
+  try {
+    if (!req.file?.path) {
       throw new ApiError(400, "Avatar is required!");
     }
 
-    const newAvatar = await cloudinaryUpload(avatarLocalPath);
+    const avatarLocalPath = req.file.path;
 
+    // Upload new avatar
+    newAvatar = await cloudinaryUpload(avatarLocalPath);
     if (!newAvatar) {
-      throw new ApiError(500, "Error updating the avatar!");
+      throw new ApiError(500, "Error uploading the avatar!");
     }
 
-    const deleteAvatar = await deleteFileFromCloudinary(
-      req.user.avatar.public_id
-    );
-
-    if (!deleteAvatar.result === "ok" || !deleteAvatar) {
-      throw new ApiError(500, "Error deleting the avatar!");
+    // Delete old avatar
+    const deleteAvatar = await deleteFileFromCloudinary(req.user.avatar.public_id);
+    if (deleteAvatar?.result !== "ok") {
+      throw new ApiError(500, "Error deleting the old avatar!");
     }
 
+    // Update user record
     const user = await User.findByIdAndUpdate(
       req.user._id,
       {
-        avatar: newAvatar,
+        $set: {
+          avatar: {
+            public_id: newAvatar.public_id,
+            url: newAvatar.secure_url,
+          },
+        },
       },
       { new: true }
     ).select("-password -refreshToken");
 
     res.status(200).json({
-      message: "Avatar updated Succesfully.",
+      message: "Avatar updated successfully.",
       user,
     });
   } catch (error) {
+    // Clean up newly uploaded avatar if an error occurs
+    if (newAvatar?.public_id) {
+      await deleteFileFromCloudinary(newAvatar.public_id);
+    }
+
     console.error(error);
     res.status(error.status || 500).json({
       message: error.message,
@@ -338,59 +461,91 @@ export const updateAvatar = async (req, res) => {
   }
 };
 
+/**
+ * Updates a user's cover image.
+ *
+ * @param {Object} req - Express request object, containing the user's file
+ * path and user information.
+ * @param {Object} res - Express response object used to send the status of
+ * the cover image update.
+ *
+ * @throws {ApiError} 400 - If the cover image file is missing.
+ * @throws {ApiError} 500 - For errors during cover image upload, deletion, or
+ * database update process.
+ */
 export const updateCoverImage = async (req, res) => {
-  try {
-    const coverImageLocalPath = req.file.path;
+  let newCoverImage = null;
 
-    if (!coverImageLocalPath) {
+  try {
+    if (!req.file?.path) {
       throw new ApiError(400, "CoverImage is required!");
     }
 
-    const newCoverImage = await cloudinaryUpload(coverImageLocalPath);
+    const coverImageLocalPath = req.file.path;
 
+    newCoverImage = await cloudinaryUpload(coverImageLocalPath);
     if (!newCoverImage) {
-      throw new ApiError(500, "Error updating the coverImage!");
+      throw new ApiError(500, "Error uploading the cover image!");
     }
 
-    const deleteCoverImage = await deleteFileFromCloudinary(
-      req.user.coverImage.public_id
-    );
-
-    if (!deleteCoverImage.result === "ok" || !deleteCoverImage) {
-      throw new ApiError(500, "Error deleting the coverImage!");
+    const deleteCoverImage = await deleteFileFromCloudinary(req.user.coverImage.public_id);
+    if (deleteCoverImage?.result !== "ok") {
+      throw new ApiError(500, "Error deleting the old cover image!");
     }
 
     const user = await User.findByIdAndUpdate(
       req.user._id,
       {
-        avatar: newCoverImage,
+        $set: {
+          coverImage: {
+            public_id: newCoverImage.public_id,
+            url: newCoverImage.secure_url,
+          },
+        },
       },
       { new: true }
     ).select("-password -refreshToken");
 
     res.status(200).json({
-      message: "CoverImage updated Succesfully.",
+      message: "CoverImage updated successfully.",
       user,
     });
   } catch (error) {
-    res.status(500).json({
+
+    if (newCoverImage?.public_id) {
+      await deleteFileFromCloudinary(newCoverImage.public_id);
+    }
+
+    res.status(error.status || 500).json({
       message: error.message,
     });
   }
 };
 
-export const getUserChannelProfile = async (req, res) => {
+/**
+ * Gets a user's channel profile, including their full name, username, number
+ * of subscribers, number of channels they subscribe to, whether the current
+ * user is subscribed to them, and their avatar and cover image URLs.
+ *
+ * @param {Object} req - Express request object, containing the user's username.
+ * @param {Object} res - Express response object used to send the channel profile.
+ * @param {Function} next - Express next middleware function.
+ *
+ * @throws {ApiError} 400 - If the username is invalid.
+ * @throws {ApiError} 404 - If the channel is not found.
+ */
+export const getUserChannelProfile = async (req, res, next) => {
   try {
     const { username } = req.params;
 
-    if (!username?.trim()) {
-      throw new ApiError(400, "username is required!");
+    if (typeof username !== "string" || !username.trim()) {
+      throw new ApiError(400, "Valid username is required!");
     }
 
     const channel = await User.aggregate([
       {
         $match: {
-          username: username?.toLowerCase(),
+          username: username.toLowerCase(),
         },
       },
       {
@@ -411,15 +566,11 @@ export const getUserChannelProfile = async (req, res) => {
       },
       {
         $addFields: {
-          subscribersCount: {
-            $size: "$subscribers",
-          },
-          channelsSubscribedToCount: {
-            $size: "$subscribedTo",
-          },
+          subscribersCount: { $size: "$subscribers" },
+          channelsSubscribedToCount: { $size: "$subscribedTo" },
           isSubscribed: {
             $cond: {
-              if: { $in: [req.user?._id, "$subscribers.subscriber"] },
+              if: { $and: [req.user, { $in: [req.user._id, "$subscribers.subscriber"] }] },
               then: true,
               else: false,
             },
@@ -440,20 +591,28 @@ export const getUserChannelProfile = async (req, res) => {
       },
     ]);
 
-    if (!channel?.length) {
+    if (!channel.length) {
       throw new ApiError(404, "Channel not found!");
     }
 
     return res.status(200).json({
       message: "User fetched successfully.",
-      channel,
+      channel: channel[0],
     });
   } catch (error) {
-    console.log(error);
-    throw error;
+    next(error);
   }
 };
 
+
+/**
+ * @function getWatchHistory
+ * @description Fetch the watch history of the currently logged in user
+ * @param {Request} req - The request object
+ * @param {Response} res - The response object
+ * @returns {Promise<Response>} A promise resolving to the response object
+ * @throws {ApiError} If an error occurs while fetching the watch history
+ */
 export const getWatchHistory = async (req, res) => {
   try {
     const user = await User.aggregate([

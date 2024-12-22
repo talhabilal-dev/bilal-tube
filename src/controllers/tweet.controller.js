@@ -1,6 +1,8 @@
 import mongoose, { isValidObjectId } from "mongoose";
 import { Tweet } from "../models/tweet.model.js";
 import { ApiError } from "../utils/ApiError.js";
+import {Like} from "../models/like.model.js"; 
+import {Comment} from "../models/comment.model.js";
 
 export const createTweet = async (req, res) => {
   try {
@@ -33,16 +35,43 @@ export const createTweet = async (req, res) => {
 
 export const getUserTweets = async (req, res) => {
   try {
-    const tweet = await Tweet.find({ owner: req.user._id });
+    const { userId } = req.params;
+    const { page = 1, limit = 10, sortBy = "createdAt", sortType = "desc" } = req.query;
+
+    if (!userId) {
+      throw new ApiError(400, "User ID is required.");
+    }
+
+    const currentPage = parseInt(page, 10);
+    const perPage = parseInt(limit, 10);
+
+    if (currentPage <= 0 || perPage <= 0) {
+      throw new ApiError(400, "Page and limit must be positive integers.");
+    }
+
+    const sortOptions = {};
+    sortOptions[sortBy] = sortType.toLowerCase() === "asc" ? 1 : -1;
+
+    const tweets = await Tweet.find({ owner: userId })
+      .sort(sortOptions)
+      .skip((currentPage - 1) * perPage)
+      .limit(perPage);
+
+    const totalTweets = await Tweet.countDocuments({ owner: userId });
+
     res.status(200).json({
-      success: true,
-      message: "Tweets fetched successfully.",
-      tweet,
+      message: "User tweets fetched successfully.",
+      data: tweets,
+      pagination: {
+        page: currentPage,
+        limit: perPage,
+        total: totalTweets,
+        totalPages: Math.ceil(totalTweets / perPage),
+      },
     });
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: "Internal Server Error",
+    res.status(error.statusCode || 500).json({
+      message: error.message || "Internal server error.",
     });
   }
 };
@@ -88,8 +117,9 @@ export const deleteTweet = async (req, res) => {
     const { tweetId } = req.params;
 
     if (!isValidObjectId(tweetId)) {
-      throw new ApiError(400, "Invalid tweet id!");
+      throw new ApiError(400, "Invalid tweet ID!");
     }
+
 
     const tweet = await Tweet.findOneAndDelete({ _id: tweetId });
 
@@ -97,14 +127,24 @@ export const deleteTweet = async (req, res) => {
       throw new ApiError(404, "Tweet not found!");
     }
 
+
+    const [likesResult, commentsResult] = await Promise.all([
+      Like.deleteMany({ tweet: tweetId }),
+      Comment.deleteMany({ tweet: tweetId }),
+    ]);
+
     res.status(200).json({
       success: true,
-      message: "Tweet deleted successfully.",
+      message: "Tweet and associated data deleted successfully.",
+      details: {
+        likesDeleted: likesResult.deletedCount,
+        commentsDeleted: commentsResult.deletedCount,
+      },
     });
   } catch (error) {
     res.status(error.statusCode || 500).json({
       success: false,
-      message: error.message,
+      message: error.message || "Internal server error.",
     });
   }
 };

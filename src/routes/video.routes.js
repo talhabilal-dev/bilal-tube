@@ -8,10 +8,11 @@ import {
   updateVideo,
   togglePublishStatus,
   deleteVideo,
+  incrementVideoView,
+  getAllVideos,
 } from "../controllers/video.controller.js";
 
 const router = Router();
-router.use(authMiddleware);
 
 router.route("/").post(
   authMiddleware,
@@ -27,13 +28,16 @@ router.route("/").post(
   ]),
   publishAVideo
 );
-
+router.route("/").get(getAllVideos);
 router
   .route("/:videoId")
   .get(getVideoById)
   .delete(deleteVideo)
-  .patch(upload.single("thumbnail"), updateVideo);
+  .patch(upload.single("thumbnail"), authMiddleware, updateVideo);
 
-router.route("/toggle/publish/:videoId").patch(togglePublishStatus);
+router
+  .route("/toggle/publish/:videoId")
+  .patch(authMiddleware, togglePublishStatus);
+router.route("/views/:videoId").patch(authMiddleware, incrementVideoView);
 
 export default router;

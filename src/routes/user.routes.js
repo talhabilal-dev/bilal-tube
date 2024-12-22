@@ -9,6 +9,7 @@ import {
   loginUser,
   getWatchHistory,
   refreshAccessToken,
+  getUserChannelProfile,
 } from "../controllers/user.controller.js";
 import { upload } from "../middlewares/multer.middleware.js";
 import { authMiddleware } from "../middlewares/auth.middleware.js";
@@ -38,6 +39,8 @@ router
 router
   .route("/updateCoverImage")
   .post(upload.single("coverImage"), authMiddleware, updateCoverImage);
-router.route("/watchHistory").get(authMiddleware, getWatchHistory);
+
+router.route("/:username/profile").get(authMiddleware, getUserChannelProfile);
+router.route("/:username/watch-history").get(authMiddleware, getWatchHistory);
 
 export default router;

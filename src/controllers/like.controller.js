@@ -2,6 +2,16 @@ import mongoose, { isValidObjectId } from "mongoose";
 import { Like } from "../models/like.model.js";
 import { ApiError } from "../utils/ApiError.js";
 
+/**
+ * Toggles a like on a video.
+ *
+ * @function toggleVideoLike
+ * @param {Object} req - The request object containing the video ID.
+ * @param {Object} res - The response object used to send the status of the like toggle.
+ * @throws {ApiError} 400 - If the video ID is missing or invalid.
+ * @throws {ApiError} 404 - If the video is not found.
+ * @throws {ApiError} 500 - For any internal server error.
+ */
 export const toggleVideoLike = async (req, res) => {
   try {
     const { videoId } = req.params;
@@ -35,6 +45,16 @@ export const toggleVideoLike = async (req, res) => {
   }
 };
 
+/**
+ * Toggles a like on a comment.
+ *
+ * @function toggleCommentLike
+ * @param {Object} req - The request object containing the comment ID.
+ * @param {Object} res - The response object used to send the status of the like toggle.
+ * @throws {ApiError} 400 - If the comment ID is missing or invalid.
+ * @throws {ApiError} 404 - If the comment is not found.
+ * @throws {ApiError} 500 - For any internal server error.
+ */
 export const toggleCommentLike = async (req, res) => {
   try {
     const { commentId } = req.params;
@@ -69,6 +89,16 @@ export const toggleCommentLike = async (req, res) => {
   }
 };
 
+/**
+ * Toggles a like on a tweet.
+ *
+ * @function toggleTweetLike
+ * @param {Object} req - The request object containing the tweet ID.
+ * @param {Object} res - The response object used to send the status of the like toggle.
+ * @throws {ApiError} 400 - If the tweet ID is missing or invalid.
+ * @throws {ApiError} 404 - If the tweet is not found.
+ * @throws {ApiError} 500 - For any internal server error.
+ */
 export const toggleTweetLike = async (req, res) => {
   try {
     const { tweetId } = req.params;
@@ -103,6 +133,15 @@ export const toggleTweetLike = async (req, res) => {
   }
 };
 
+/**
+ * @function getLikedVideos
+ * @description Fetches all liked videos for the authenticated user.
+ * @param {Object} req - The request object.
+ * @param {Object} res - The response object.
+ * @throws {ApiError} 401 - If the user is not authenticated.
+ * @throws {ApiError} 404 - If no liked videos are found.
+ * @throws {ApiError} 500 - For any internal server error.
+ */
 export const getLikedVideos = async (req, res) => {
   try {
     const userId = req.user._id;
@@ -114,7 +153,7 @@ export const getLikedVideos = async (req, res) => {
       likedBy: userId,
       video: { $exists: true },
     })
-      .populate("video", "title description thumbnail createdAt")
+      .populate("video", "title description thumbnail videoFile createdAt")
       .select("-likedBy -comment -tweet");
 
     if (!likedVideos || likedVideos.length === 0) {

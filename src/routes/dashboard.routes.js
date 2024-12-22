@@ -9,7 +9,7 @@ const router = Router();
 
 router.use(authMiddleware);
 
-router.route("/stats").get(getChannelStats);
-router.route("/videos").get(getChannelVideos);
+router.route("/stats/:channelId").get(getChannelStats);
+router.route("/videos/:channelId").get(getChannelVideos);
 
 export default router;
