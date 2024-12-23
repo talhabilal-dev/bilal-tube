@@ -4,16 +4,7 @@ import { Subscription } from "../models/subscription.model.js";
 import { Like } from "../models/like.model.js";
 import { ApiError } from "../utils/ApiError.js";
 
-/**
- * @function getChannelStats
- * @description Fetches the total number of videos, subscribers, views, and likes for a given channel.
- * @param {Object} req - The request object containing the channel ID.
- * @param {Object} res - The response object used to send the channel stats.
- * @throws {ApiError} 400 - If the channel ID is missing or invalid.
- * @throws {ApiError} 500 - For any internal server error.
- * @returns {Promise<void>}
- */
-export const getChannelStats = async (req, res) => {
+export const getChannelStats = async (req, res, next) => {
   try {
     const { channelId } = req.params;
 
@@ -50,29 +41,11 @@ export const getChannelStats = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Error fetching channel stats:", error);
-    res.status(500).json({
-      message: "Internal server error!",
-    });
+    next(error);
   }
 };
 
-/**
- * @function getChannelVideos
- * @description Fetches videos for a specified channel with pagination and sorting options.
- * @param {Object} req - The request object containing channel ID and query parameters.
- * @param {Object} res - The response object used to send the video data.
- * @param {string} [req.query.page=1] - The page number for pagination.
- * @param {string} [req.query.limit=10] - The number of videos per page.
- * @param {string} [req.query.sortBy="createdAt"] - The field to sort the videos by.
- * @param {string} [req.query.sortType="desc"] - The sorting order: 'asc' or 'desc'.
- * @throws {ApiError} 400 - If the channel ID is invalid.
- * @throws {ApiError} 404 - If no videos are found for the channel.
- * @throws {ApiError} 500 - For any internal server error.
- * @returns {Promise<void>}
- */
-
-export const getChannelVideos = async (req, res) => {
+export const getChannelVideos = async (req, res, next) => {
   try {
     const { channelId } = req.params;
     const {
@@ -115,6 +88,6 @@ export const getChannelVideos = async (req, res) => {
       },
     });
   } catch (error) {
-    throw new ApiError(500, "Internal server error.", error);
+    next(error);
   }
 };

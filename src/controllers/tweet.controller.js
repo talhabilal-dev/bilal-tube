@@ -1,10 +1,10 @@
 import mongoose, { isValidObjectId } from "mongoose";
 import { Tweet } from "../models/tweet.model.js";
 import { ApiError } from "../utils/ApiError.js";
-import {Like} from "../models/like.model.js"; 
-import {Comment} from "../models/comment.model.js";
+import { Like } from "../models/like.model.js";
+import { Comment } from "../models/comment.model.js";
 
-export const createTweet = async (req, res) => {
+export const createTweet = async (req, res, next) => {
   try {
     const { content } = req.body;
     if (!content) {
@@ -26,17 +26,19 @@ export const createTweet = async (req, res) => {
       tweet,
     });
   } catch (error) {
-    res.status(error.statusCode || 500).json({
-      success: false,
-      message: error.message,
-    });
+    next(error);
   }
 };
 
-export const getUserTweets = async (req, res) => {
+export const getUserTweets = async (req, res, next) => {
   try {
     const { userId } = req.params;
-    const { page = 1, limit = 10, sortBy = "createdAt", sortType = "desc" } = req.query;
+    const {
+      page = 1,
+      limit = 10,
+      sortBy = "createdAt",
+      sortType = "desc",
+    } = req.query;
 
     if (!userId) {
       throw new ApiError(400, "User ID is required.");
@@ -70,13 +72,11 @@ export const getUserTweets = async (req, res) => {
       },
     });
   } catch (error) {
-    res.status(error.statusCode || 500).json({
-      message: error.message || "Internal server error.",
-    });
+    next(error);
   }
 };
 
-export const updateTweet = async (req, res) => {
+export const updateTweet = async (req, res, next) => {
   try {
     const { content } = req.body;
     const { tweetId } = req.params;
@@ -105,14 +105,11 @@ export const updateTweet = async (req, res) => {
       tweet,
     });
   } catch (error) {
-    res.status(error.statusCode || 500).json({
-      success: false,
-      message: error.message,
-    });
+    next(error);
   }
 };
 
-export const deleteTweet = async (req, res) => {
+export const deleteTweet = async (req, res, next) => {
   try {
     const { tweetId } = req.params;
 
@@ -120,13 +117,11 @@ export const deleteTweet = async (req, res) => {
       throw new ApiError(400, "Invalid tweet ID!");
     }
 
-
     const tweet = await Tweet.findOneAndDelete({ _id: tweetId });
 
     if (!tweet) {
       throw new ApiError(404, "Tweet not found!");
     }
-
 
     const [likesResult, commentsResult] = await Promise.all([
       Like.deleteMany({ tweet: tweetId }),
@@ -142,9 +137,6 @@ export const deleteTweet = async (req, res) => {
       },
     });
   } catch (error) {
-    res.status(error.statusCode || 500).json({
-      success: false,
-      message: error.message || "Internal server error.",
-    });
+    next(error);
   }
 };

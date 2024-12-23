@@ -3,7 +3,7 @@ import { User } from "../models/user.model.js";
 import { Subscription } from "../models/subscription.model.js";
 import { ApiError } from "../utils/ApiError.js";
 
-export const toggleSubscription = async (req, res) => {
+export const toggleSubscription = async (req, res, next) => {
   try {
     const { channelId } = req.params;
     const userId = req.user._id;
@@ -29,20 +29,22 @@ export const toggleSubscription = async (req, res) => {
       });
     }
   } catch (error) {
-    throw new ApiError(500, "Error toggling subscription", error);
+    next(error);
   }
 };
 
-export const getUserChannelSubscribers = async (req, res) => {
+export const getUserChannelSubscribers = async (req, res, next) => {
   try {
     const { channelId } = req.params;
 
-    if (isValidObjectId(channelId) === false || !channelId) {
-      throw new ApiError(400, "Channel ID is required");
+    if (!isValidObjectId(channelId)) {
+      throw new ApiError(400, "Invalid Channel ID format.");
     }
 
     const aggregationPipeline = [
-      { $match: { channel: channelId } },
+      {
+        $match: { channel: new mongoose.Types.ObjectId(channelId) },
+      },
       {
         $lookup: {
           from: "users",
@@ -51,20 +53,25 @@ export const getUserChannelSubscribers = async (req, res) => {
           as: "subscriberDetails",
         },
       },
-      { $unwind: "$subscriberDetails" },
+      {
+        $unwind: "$subscriberDetails",
+      },
       {
         $project: {
           subscriberId: "$subscriberDetails._id",
-          subscriberName: "$subscriberDetails.name",
+          subscriberName: "$subscriberDetails.fullName",
           subscriberEmail: "$subscriberDetails.email",
           subscribedAt: "$createdAt",
         },
       },
     ];
+
     const subscribers = await Subscription.aggregate(aggregationPipeline);
 
-    if (!subscribers || subscribers.length === 0) {
-      throw new ApiError(404, "No subscribers found for this channel");
+    console.log(subscribers);
+
+    if (subscribers.length === 0) {
+      throw new ApiError(404, "No subscribers found");
     }
 
     res.status(200).json({
@@ -72,20 +79,20 @@ export const getUserChannelSubscribers = async (req, res) => {
       subscribers,
     });
   } catch (error) {
-    throw new ApiError(500, "Error fetching subscribers", error);
+    next(error);
   }
 };
 
-export const getSubscribedChannels = async (req, res) => {
+export const getSubscribedChannels = async (req, res, next) => {
   try {
     const { subscriberId } = req.params;
 
-    if (isValidObjectId(subscriberId) === false || !subscriberId) {
-      throw new ApiError(400, "Subscriber ID is required");
+    if (!subscriberId || isValidObjectId(subscriberId) === false) {
+      throw new ApiError(400, "Valid subscriber ID is required");
     }
 
     const aggregationPipeline = [
-      { $match: { subscriber: subscriberId } },
+      { $match: { subscriber: new mongoose.Types.ObjectId(subscriberId) } },
       {
         $lookup: {
           from: "users",
@@ -98,7 +105,7 @@ export const getSubscribedChannels = async (req, res) => {
       {
         $project: {
           channelId: "$channelDetails._id",
-          channelName: "$channelDetails.name",
+          channelName: "$channelDetails.fullName",
           subscribedAt: "$createdAt",
         },
       },
@@ -116,6 +123,6 @@ export const getSubscribedChannels = async (req, res) => {
       channels: subscribedChannels,
     });
   } catch (error) {
-    throw new ApiError(500, "Error fetching subscribed channels", error);
+    next(error);
   }
 };

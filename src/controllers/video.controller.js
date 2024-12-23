@@ -1,28 +1,14 @@
 import mongoose, { isValidObjectId } from "mongoose";
 import { Video } from "../models/video.model.js";
-import {Like} from "../models/like.model.js"; 
-import {Comment} from "../models/comment.model.js";
+import { Like } from "../models/like.model.js";
+import { Comment } from "../models/comment.model.js";
 import { ApiError } from "../utils/ApiError.js";
 import {
   deleteFileFromCloudinary,
   cloudinaryUpload,
 } from "../utils/cloudinary.js";
 
-/**
- * @function getAllVideos
- * @description Fetches all videos with optional query string filters.
- * @param {Object} req - The request object.
- * @param {Object} res - The response object.
- * @param {string} [req.query.page=1] - The page number.
- * @param {string} [req.query.limit=10] - The number of items per page.
- * @param {string} [req.query.query=""] - The search query string.
- * @param {string} [req.query.sortBy="createdAt"] - The property to sort by.
- * @param {string} [req.query.sortType="desc"] - The sort order.
- * @param {string} [req.query.userId] - The user ID to filter by.
- * @returns {Promise<void>}
- * @throws {ApiError}
- */
-export const getAllVideos = async (req, res) => {
+export const getAllVideos = async (req, res, next) => {
   try {
     const {
       page = 1,
@@ -76,29 +62,13 @@ export const getAllVideos = async (req, res) => {
       pagination,
     });
   } catch (error) {
-    throw new ApiError(500, "Failed to fetch videos.");
+    next(error);
   }
 };
 
-/**
- * @function publishAVideo
- * @description Publishes a new video.
- * @param {Object} req - The request object.
- * @param {Object} res - The response object.
- * @param {Object} next - The next middleware function.
- * @property {string} [req.body.title] - The video title.
- * @property {string} [req.body.description] - The video description.
- * @property {number} [req.body.duration] - The video duration in seconds.
- * @property {boolean} [req.body.isPublished] - Whether the video is published.
- * @property {Object} [req.files.video] - The video file.
- * @property {Object} [req.files.thumbnail] - The thumbnail file.
- * @returns {Promise<void>}
- * @throws {ApiError}
- */
 export const publishAVideo = async (req, res, next) => {
   try {
     const { title, description, duration, isPublished } = req.body;
-
 
     if (!title || !description) {
       throw new ApiError(400, "Title and description are required!");
@@ -114,7 +84,6 @@ export const publishAVideo = async (req, res, next) => {
     let video, thumbnail;
 
     try {
-
       [video, thumbnail] = await Promise.all([
         cloudinaryUpload(videolocalPath),
         cloudinaryUpload(thumbnailLocalPath),
@@ -128,10 +97,12 @@ export const publishAVideo = async (req, res, next) => {
     }
 
     try {
-
       const newVideo = await Video.create({
         videoFile: { url: video.secure_url, public_id: video.public_id },
-        thumbnail: { url: thumbnail.secure_url, public_id: thumbnail.public_id },
+        thumbnail: {
+          url: thumbnail.secure_url,
+          public_id: thumbnail.public_id,
+        },
         title,
         description,
         duration,
@@ -144,7 +115,6 @@ export const publishAVideo = async (req, res, next) => {
         newVideo,
       });
     } catch (dbError) {
-
       await Promise.all([
         deleteFileFromCloudinary(video?.public_id),
         deleteFileFromCloudinary(thumbnail?.public_id),
@@ -156,17 +126,7 @@ export const publishAVideo = async (req, res, next) => {
   }
 };
 
-/**
- * Fetches a video by its ID.
- *
- * @param {Object} req - The request object containing the video ID.
- * @param {Object} res - The response object used to send the video data.
- * @throws {ApiError} 400 - If the video ID is missing or invalid.
- * @throws {ApiError} 404 - If the video is not found.
- * @throws {ApiError} 500 - For any internal server error.
- */
-
-export const getVideoById = async (req, res) => {
+export const getVideoById = async (req, res, next) => {
   try {
     const { videoId } = req.params;
 
@@ -189,27 +149,19 @@ export const getVideoById = async (req, res) => {
       video,
     });
   } catch (error) {
-    throw new ApiError(500, "Internal server error!");
+    next(error);
   }
 };
 
-/**
- * Updates a video by its ID.
- *
- * @param {Object} req - The request object containing the video ID, title, and description.
- * @param {Object} res - The response object used to send the updated video data.
- * @param {Function} next - The next middleware function to call in case of an error.
- * @throws {ApiError} 400 - If the video ID, title, or description is missing or invalid.
- * @throws {ApiError} 404 - If the video is not found.
- * @throws {ApiError} 500 - For any internal server error.
- */
 export const updateVideo = async (req, res, next) => {
   try {
     const { videoId } = req.params;
     const { title, description } = req.body;
 
     if (!videoId || !title || !description) {
-      return next(new ApiError(400, "VideoId, title, and description are required!"));
+      return next(
+        new ApiError(400, "VideoId, title, and description are required!")
+      );
     }
 
     if (!isValidObjectId(videoId)) {
@@ -229,10 +181,14 @@ export const updateVideo = async (req, res, next) => {
         return next(new ApiError(500, "Error uploading new thumbnail!"));
       }
 
-      const deleteThumbnailResult = await deleteFileFromCloudinary(video.thumbnail.public_id);
+      const deleteThumbnailResult = await deleteFileFromCloudinary(
+        video.thumbnail.public_id
+      );
 
       if (!deleteThumbnailResult || deleteThumbnailResult.result !== "ok") {
-        return next(new ApiError(500, "Error deleting the old thumbnail from Cloudinary!"));
+        return next(
+          new ApiError(500, "Error deleting the old thumbnail from Cloudinary!")
+        );
       }
 
       thumbnailUrl = {
@@ -258,22 +214,11 @@ export const updateVideo = async (req, res, next) => {
       video: updatedVideo,
     });
   } catch (error) {
-    next(new ApiError(500, error.message || "Internal server error!"));
+    next(error);
   }
 };
 
-
-
-/**
- * Deletes a video and all associated data, including likes and comments.
- *
- * @param {Object} req - The request object containing the video ID.
- * @param {Object} res - The response object used to send the status of the deletion.
- * @throws {ApiError} 400 - If the video ID is missing or invalid.
- * @throws {ApiError} 404 - If the video is not found.
- * @throws {ApiError} 500 - For any internal server error.
- */
-export const deleteVideo = async (req, res) => {
+export const deleteVideo = async (req, res, next) => {
   const { videoId } = req.params;
 
   if (!videoId) {
@@ -291,12 +236,10 @@ export const deleteVideo = async (req, res) => {
       throw new ApiError(400, "Video file information is missing or invalid.");
     }
 
-
     const cloudinaryResult = await Promise.all([
       deleteFileFromCloudinary(video.videoFile.public_id, "video"),
       deleteFileFromCloudinary(video.thumbnail.public_id, "image"),
     ]);
-
 
     if (cloudinaryResult.some((result) => result.result !== "ok")) {
       throw new ApiError(500, "Error deleting video files from Cloudinary!");
@@ -306,7 +249,6 @@ export const deleteVideo = async (req, res) => {
       Like.deleteMany({ video: videoId }),
       Comment.deleteMany({ video: videoId }),
     ]);
-
 
     await Video.findByIdAndDelete(videoId);
 
@@ -318,24 +260,11 @@ export const deleteVideo = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Error during deletion:", error);
-    res.status(error.status || 500).json({
-      message: error.message || "Failed to delete video.",
-    });
+    next(error);
   }
 };
 
-/**
- * Toggles the publish status of a video.
- *
- * @param {Object} req - Express request object containing the video ID.
- * @param {Object} res - Express response object used to send the status of the toggle.
- *
- * @throws {ApiError} 400 - If the video ID is missing or invalid.
- * @throws {ApiError} 404 - If the video does not exist.
- * @throws {ApiError} 500 - For errors during video update.
- */
-export const togglePublishStatus = async (req, res) => {
+export const togglePublishStatus = async (req, res, next) => {
   try {
     const { videoId } = req.params;
 
@@ -360,23 +289,10 @@ export const togglePublishStatus = async (req, res) => {
       video: updatedVideo,
     });
   } catch (error) {
-    res.status(500).json({
-      message: error.message || "Internal server error!",
-    });
+    next(error);
   }
 };
 
-/**
- * Increments the view count of a video.
- *
- * @param {Object} req - The request object containing the video ID.
- * @param {Object} res - The response object used to send the updated view count.
- * @param {Function} next - The next middleware function.
- *
- * @throws {ApiError} 400 - If the video ID is missing or invalid.
- * @throws {ApiError} 404 - If the video does not exist.
- * @throws {ApiError} 500 - For errors during video update.
- */
 export const incrementVideoView = async (req, res, next) => {
   try {
     const { videoId } = req.params;
@@ -399,6 +315,6 @@ export const incrementVideoView = async (req, res, next) => {
       views: video.views,
     });
   } catch (error) {
-    next(new ApiError(500, error.message || "Failed to update video views."));
+    next(error);
   }
 };
