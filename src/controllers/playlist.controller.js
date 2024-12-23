@@ -3,7 +3,7 @@ import { Playlist } from "../models/playlist.model.js";
 import { Video } from "../models/video.model.js";
 import { ApiError } from "../utils/ApiError.js";
 
-export const createPlaylist = async (req, res,next) => {
+export const createPlaylist = async (req, res, next) => {
   try {
     const { name, description } = req.body;
 
@@ -30,7 +30,7 @@ export const createPlaylist = async (req, res,next) => {
   }
 };
 
-export const getUserPlaylists = async (req, res,next) => {
+export const getUserPlaylists = async (req, res, next) => {
   try {
     const { userId } = req.params;
 
@@ -49,11 +49,11 @@ export const getUserPlaylists = async (req, res,next) => {
       playlists,
     });
   } catch (error) {
-next(error);
+    next(error);
   }
 };
 
-export const getPlaylistById = async (req, res,next) => {
+export const getPlaylistById = async (req, res, next) => {
   try {
     const { playlistId } = req.params;
 
@@ -76,14 +76,13 @@ export const getPlaylistById = async (req, res,next) => {
   }
 };
 
-export const addVideoToPlaylist = async (req, res,next) => {
+export const addVideoToPlaylist = async (req, res, next) => {
   try {
     const { playlistId, videoId } = req.params;
 
     if (!isValidObjectId(playlistId) || !isValidObjectId(videoId)) {
       throw new ApiError(400, "Invalid playlistId or videoId format!");
     }
-
 
     const playlist = await Playlist.findById(playlistId);
 
@@ -101,7 +100,6 @@ export const addVideoToPlaylist = async (req, res,next) => {
       throw new ApiError(404, "Video not found!");
     }
 
-
     playlist.videos.push(videoId);
     await playlist.save();
 
@@ -110,11 +108,11 @@ export const addVideoToPlaylist = async (req, res,next) => {
       playlist,
     });
   } catch (error) {
-next(error);
+    next(error);
   }
 };
 
-export const removeVideoFromPlaylist = async (req, res,next) => {
+export const removeVideoFromPlaylist = async (req, res, next) => {
   try {
     const { playlistId, videoId } = req.params;
 
@@ -153,7 +151,7 @@ export const removeVideoFromPlaylist = async (req, res,next) => {
   }
 };
 
-export const deletePlaylist = async (req, res,next) => {
+export const deletePlaylist = async (req, res, next) => {
   try {
     const { playlistId } = req.params;
 
@@ -181,7 +179,7 @@ export const deletePlaylist = async (req, res,next) => {
   }
 };
 
-export const updatePlaylist = async (req, res,next) => {
+export const updatePlaylist = async (req, res, next) => {
   try {
     const { playlistId } = req.params;
     const { name, description } = req.body;
