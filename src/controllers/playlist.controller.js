@@ -3,7 +3,7 @@ import { Playlist } from "../models/playlist.model.js";
 import { Video } from "../models/video.model.js";
 import { ApiError } from "../utils/ApiError.js";
 
-export const createPlaylist = async (req, res) => {
+export const createPlaylist = async (req, res,next) => {
   try {
     const { name, description } = req.body;
 
@@ -26,13 +26,11 @@ export const createPlaylist = async (req, res) => {
       playlist,
     });
   } catch (error) {
-    res.status(error.statusCode || 500).json({
-      message: error.message || "Internal server error.",
-    });
+    next(error);
   }
 };
 
-export const getUserPlaylists = async (req, res) => {
+export const getUserPlaylists = async (req, res,next) => {
   try {
     const { userId } = req.params;
 
@@ -42,7 +40,7 @@ export const getUserPlaylists = async (req, res) => {
 
     const playlists = await Playlist.find({ owner: userId });
 
-    if (!playlists) {
+    if (playlists.length === 0) {
       throw new ApiError(404, "Playlists not found!");
     }
 
@@ -51,13 +49,11 @@ export const getUserPlaylists = async (req, res) => {
       playlists,
     });
   } catch (error) {
-    res.status(error.statusCode || 500).json({
-      message: error.message || "Internal server error.",
-    });
+next(error);
   }
 };
 
-export const getPlaylistById = async (req, res) => {
+export const getPlaylistById = async (req, res,next) => {
   try {
     const { playlistId } = req.params;
 
@@ -76,13 +72,11 @@ export const getPlaylistById = async (req, res) => {
       playlist,
     });
   } catch (error) {
-    res.status(error.statusCode || 500).json({
-      message: error.message || "Internal server error.",
-    });
+    next(error);
   }
 };
 
-export const addVideoToPlaylist = async (req, res) => {
+export const addVideoToPlaylist = async (req, res,next) => {
   try {
     const { playlistId, videoId } = req.params;
 
@@ -90,10 +84,15 @@ export const addVideoToPlaylist = async (req, res) => {
       throw new ApiError(400, "Invalid playlistId or videoId format!");
     }
 
+
     const playlist = await Playlist.findById(playlistId);
 
     if (!playlist) {
       throw new ApiError(404, "Playlist not found!");
+    }
+
+    if (playlist.videos.includes(videoId)) {
+      throw new ApiError(400, "Video is already in the playlist!");
     }
 
     const video = await Video.findById(videoId);
@@ -102,28 +101,20 @@ export const addVideoToPlaylist = async (req, res) => {
       throw new ApiError(404, "Video not found!");
     }
 
-    const updatedPlaylist = await Playlist.findByIdAndUpdate(
-      playlistId,
-      { $push: { videos: videoId } },
-      { new: true }
-    );
 
-    if (!updatedPlaylist) {
-      throw new ApiError(500, "Error adding video to playlist!");
-    }
+    playlist.videos.push(videoId);
+    await playlist.save();
 
     res.status(200).json({
       message: "Video added to playlist successfully.",
-      playlist: updatedPlaylist,
+      playlist,
     });
   } catch (error) {
-    res.status(error.statusCode || 500).json({
-      message: error.message || "Internal server error.",
-    });
+next(error);
   }
 };
 
-export const removeVideoFromPlaylist = async (req, res) => {
+export const removeVideoFromPlaylist = async (req, res,next) => {
   try {
     const { playlistId, videoId } = req.params;
 
@@ -158,13 +149,11 @@ export const removeVideoFromPlaylist = async (req, res) => {
       playlist: updatedPlaylist,
     });
   } catch (error) {
-    res.status(error.statusCode || 500).json({
-      message: error.message || "Internal server error.",
-    });
+    next(error);
   }
 };
 
-export const deletePlaylist = async (req, res) => {
+export const deletePlaylist = async (req, res,next) => {
   try {
     const { playlistId } = req.params;
 
@@ -188,13 +177,11 @@ export const deletePlaylist = async (req, res) => {
       message: "Playlist deleted successfully.",
     });
   } catch (error) {
-    res.status(error.statusCode || 500).json({
-      message: error.message || "Internal server error.",
-    });
+    next(error);
   }
 };
 
-export const updatePlaylist = async (req, res) => {
+export const updatePlaylist = async (req, res,next) => {
   try {
     const { playlistId } = req.params;
     const { name, description } = req.body;
@@ -228,8 +215,6 @@ export const updatePlaylist = async (req, res) => {
       playlist: updatedPlaylist,
     });
   } catch (error) {
-    res.status(error.statusCode || 500).json({
-      message: error.message || "Internal server error.",
-    });
+    next(error);
   }
 };
