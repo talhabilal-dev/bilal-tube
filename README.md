@@ -60,7 +60,7 @@ A robust backend for a video-sharing platform inspired by YouTube, built with **
    Create a `.env` file in the root directory with:  
 
    ```
-   PORT=3000
+   PORT=8000
    DATABASE_URL=<your_database_url>
    JWT_SECRET=<your_secret_key>
    ```
