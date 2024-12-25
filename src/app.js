@@ -25,11 +25,9 @@ import playlistRouter from "./routes/playlist.routes.js";
 import dashboardRouter from "./routes/dashboard.routes.js";
 import { errorHandler } from "./middlewares/errorHandler.middleware.js";
 
-app.get("/", (req, res) => {
-  res.status(200).json({
-    message: "Welcome to bilal-tube backend",
-  });
-})
+app.get('/', (req, res) => {
+  res.send('Welcome to my YouTube-like backend!');
+});
 app.use("/api/v1/healthcheck", healthcheckRouter);
 app.use("/api/v1/users", userRouter);
 app.use("/api/v1/tweets", tweetRouter);
