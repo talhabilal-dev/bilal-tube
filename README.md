@@ -3,7 +3,7 @@
 
 # 🎥 YouTube-Like Backend  
 
-A robust backend for a video-sharing platform inspired by YouTube, built with **Node.js** and deployed on **Render**. This backend supports video uploads, user authentication, and dynamic content delivery.
+A robust backend for a video-sharing platform inspired by YouTube, built with **Node.js** and **Express.js**. This backend supports video uploads, user authentication, and dynamic content delivery.
 
 ---
 
@@ -19,9 +19,11 @@ A robust backend for a video-sharing platform inspired by YouTube, built with **
 ## 🛠️ Tech Stack  
 
 - **Backend**: Node.js, Express.js  
-- **Database**: MySQL / MongoDB (choose based on your deployment)  
+- **Database**: MongoDB (choose based on your deployment)  
 - **Middleware**: Custom middleware for error handling, authentication, etc.  
-- **Hosting**: Render (Cloud deployment)  
+- **Multer**: File upload handling for video uploads.
+- **JWT**: JSON Web Tokens for user authentication.
+- **Cloudinary**: Image hosting for video thumbnails.
 
 ---
 
@@ -85,12 +87,6 @@ The backend includes endpoints for:
 - **Search**: Find videos by title, tags, or categories.  
 
 > **Note**: Complete API documentation will be added soon.  
-
----
-
-## 🚀 Deployment  
-
-The backend is deployed on **Render** and can be accessed [here](https://bilal-tube.onrender.com).  
 
 ---
 
