@@ -1,7 +1,8 @@
 import jwt from "jsonwebtoken";
 import { User } from "../models/user.model.js";
+import type { NextFunction } from "express";
 
-export const authMiddleware = async (req, res, next) => {
+export const authMiddleware = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const accessToken =
       req.cookies.accessToken || req.headers.authorization?.split(" ")[1];
