@@ -2,12 +2,18 @@ import { User } from "../models/user.model.js";
 import mongoose, { isValidObjectId } from "mongoose";
 import { ApiError } from "../utils/ApiError.js";
 import type { NextFunction, Request, Response } from "express";
-import { loginUserSchema, registerUserSchema } from "../schema/user.schema.js";
+import {
+  changePasswordSchema,
+  loginUserSchema,
+  refreshAccessTokenSchema,
+  registerUserSchema,
+  updateAccountDetailsSchema,
+} from "../schema/user.schema.js";
 import {
   cloudinaryUpload,
   deleteFileFromCloudinary,
 } from "../utils/cloudinary.js";
-import jwt from "jsonwebtoken";
+import jwt, { type JwtPayload } from "jsonwebtoken";
 import {
   generateAccessToken,
   generateRefreshToken,
@@ -193,9 +199,23 @@ export const loginUser = async (
   }
 };
 
-export const logOutUser = async (req, res, next) => {
+type LogOutRequest = Request<{}, {}, unknown> & {
+  user: {
+    _id: string;
+  };
+};
+
+export const logOutUser = async (
+  req: LogOutRequest,
+  res: Response,
+  next: NextFunction
+) => {
   try {
-    await User.findByIdAndUpdate(
+    if (!req.user?._id) {
+      throw new ApiError(401, "Unauthorized request");
+    }
+
+    const updatedUser = await User.findByIdAndUpdate(
       req.user._id,
       {
         $unset: {
@@ -206,6 +226,10 @@ export const logOutUser = async (req, res, next) => {
         new: true,
       }
     );
+
+    if (!updatedUser) {
+      throw new ApiError(404, "User not found");
+    }
 
     const options = {
       httpOnly: true,
@@ -224,10 +248,39 @@ export const logOutUser = async (req, res, next) => {
   }
 };
 
-export const refreshAccessToken = async (req, res, next) => {
+type RefreshAccessTokenRequest = Request<{}, {}, unknown> & {
+  cookies?: {
+    refreshToken?: string;
+  };
+};
+
+type RefreshTokenPayload = JwtPayload & {
+  _id: string;
+};
+
+const isRefreshTokenPayload = (
+  payload: string | JwtPayload
+): payload is RefreshTokenPayload => {
+  return typeof payload !== "string" && typeof payload._id === "string";
+};
+
+export const refreshAccessToken = async (
+  req: RefreshAccessTokenRequest,
+  res: Response,
+  next: NextFunction
+) => {
   try {
+    const parsedBody = refreshAccessTokenSchema.safeParse(req.body);
+
+    if (!parsedBody.success) {
+      const message = parsedBody.error.issues
+        .map((issue) => issue.message)
+        .join(", ");
+      throw new ApiError(400, message || "Invalid refresh token payload");
+    }
+
     const incomingRefreshToken =
-      req.cookies.refreshToken || req.body.refreshToken;
+      req.cookies?.refreshToken || parsedBody.data.refreshToken;
 
     if (!incomingRefreshToken) {
       throw new ApiError(401, "Refresh token is required");
@@ -242,7 +295,11 @@ export const refreshAccessToken = async (req, res, next) => {
       ENV.REFRESH_TOKEN_SECRET
     );
 
-    const user = await User.findById(decodedToken?._id);
+    if (!isRefreshTokenPayload(decodedToken)) {
+      throw new ApiError(401, "Invalid refresh token payload");
+    }
+
+    const user = await User.findById(decodedToken._id);
 
     if (!user) {
       throw new ApiError(401, "Invalid refresh token");
@@ -279,9 +336,28 @@ export const refreshAccessToken = async (req, res, next) => {
   }
 };
 
-export const changePassword = async (req, res, next) => {
+type ChangePasswordRequest = Request<{}, {}, unknown> & {
+  user: {
+    _id: string;
+  };
+};
+
+export const changePassword = async (
+  req: ChangePasswordRequest,
+  res: Response,
+  next: NextFunction
+) => {
   try {
-    const { oldPassword, currentPassword } = req.body;
+    const parsedBody = changePasswordSchema.safeParse(req.body);
+
+    if (!parsedBody.success) {
+      const message = parsedBody.error.issues
+        .map((issue) => issue.message)
+        .join(", ");
+      throw new ApiError(400, message || "Invalid password payload");
+    }
+
+    const { oldPassword, currentPassword } = parsedBody.data;
 
     const user = await User.findById(req.user._id);
 
@@ -296,7 +372,7 @@ export const changePassword = async (req, res, next) => {
     }
 
     user.password = currentPassword;
-    user.save({ validateBeforeSave: false });
+    await user.save({ validateBeforeSave: false });
 
     res.status(200).json({
       message: "Password updated successfully.",
@@ -306,23 +382,64 @@ export const changePassword = async (req, res, next) => {
   }
 };
 
-export const getCurrentUser = async (req, res, next) => {
+type AuthenticatedRequest = Request<{}, {}, unknown> & {
+  user: {
+    _id: string;
+  };
+};
+
+export const getCurrentUser = async (
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction
+) => {
   try {
+    if (!req.user?._id) {
+      throw new ApiError(401, "Unauthorized request");
+    }
+
+    const user = await User.findById(req.user._id).select(
+      "-password -refreshToken"
+    );
+
+    if (!user) {
+      throw new ApiError(404, "User not found");
+    }
+
     return res.status(200).json({
       message: "User fetched successfully.",
-      user: req.user,
+      user,
     });
   } catch (error) {
     next(error);
   }
 };
 
-export const updateAccountDetails = async (req, res, next) => {
-  try {
-    const { username, fullName, email } = req.body;
+type UpdateAccountDetailsRequest = Request<{}, {}, unknown> & {
+  user: {
+    _id: string;
+  };
+};
 
-    if (!username || !fullName || !email) {
-      throw new ApiError(400, "All fields are required");
+export const updateAccountDetails = async (
+  req: UpdateAccountDetailsRequest,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const parsedBody = updateAccountDetailsSchema.safeParse(req.body);
+
+    if (!parsedBody.success) {
+      const message = parsedBody.error.issues
+        .map((issue) => issue.message)
+        .join(", ");
+      throw new ApiError(400, message || "Invalid account details payload");
+    }
+
+    const { username, fullName, email } = parsedBody.data;
+
+    if (!req.user?._id) {
+      throw new ApiError(401, "Unauthorized request");
     }
 
     const updatedUser = await User.findByIdAndUpdate(
@@ -335,7 +452,11 @@ export const updateAccountDetails = async (req, res, next) => {
         },
       },
       { new: true }
-    ).select("-password");
+    ).select("-password -refreshToken");
+
+    if (!updatedUser) {
+      throw new ApiError(404, "User not found");
+    }
 
     res.status(200).json({
       message: "Account details updated successfully.",
@@ -346,10 +467,30 @@ export const updateAccountDetails = async (req, res, next) => {
   }
 };
 
-export const updateAvatar = async (req, res, next) => {
-  let newAvatar = null;
+type UpdateAvatarRequest = Request<{}, {}, unknown> & {
+  user: {
+    _id: string;
+    avatar: {
+      public_id: string;
+    };
+  };
+  file?: {
+    path: string;
+  };
+};
+
+export const updateAvatar = async (
+  req: UpdateAvatarRequest,
+  res: Response,
+  next: NextFunction
+) => {
+  let newAvatar: UploadedAsset | null = null;
 
   try {
+    if (!req.user?._id) {
+      throw new ApiError(401, "Unauthorized request");
+    }
+
     if (!req.file?.path) {
       throw new ApiError(400, "Avatar is required!");
     }
@@ -359,13 +500,6 @@ export const updateAvatar = async (req, res, next) => {
     newAvatar = await cloudinaryUpload(avatarLocalPath);
     if (!newAvatar) {
       throw new ApiError(500, "Error uploading the avatar!");
-    }
-
-    const deleteAvatar = await deleteFileFromCloudinary(
-      req.user.avatar.public_id
-    );
-    if (deleteAvatar?.result !== "ok") {
-      throw new ApiError(500, "Error deleting the old avatar!");
     }
 
     const user = await User.findByIdAndUpdate(
@@ -381,23 +515,59 @@ export const updateAvatar = async (req, res, next) => {
       { new: true }
     ).select("-password -refreshToken");
 
+    if (!user) {
+      throw new ApiError(404, "User not found");
+    }
+
+    const oldAvatarPublicId = req.user.avatar?.public_id;
+    if (oldAvatarPublicId && oldAvatarPublicId !== newAvatar.public_id) {
+      const deleteAvatar = await deleteFileFromCloudinary(oldAvatarPublicId);
+      if (deleteAvatar?.result !== "ok") {
+        throw new ApiError(500, "Error deleting the old avatar!");
+      }
+    }
+
     res.status(200).json({
       message: "Avatar updated successfully.",
       user,
     });
   } catch (error) {
     if (newAvatar?.public_id) {
-      await deleteFileFromCloudinary(newAvatar.public_id);
+      try {
+        await deleteFileFromCloudinary(newAvatar.public_id);
+      } catch {
+        // Preserve original update error when cleanup fails.
+      }
     }
 
     next(error);
   }
 };
 
-export const updateCoverImage = async (req, res, next) => {
-  let newCoverImage = null;
+type UpdateCoverImageRequest = Request<{}, {}, unknown> & {
+  user: {
+    _id: string;
+    coverImage: {
+      public_id: string;
+    };
+  };
+  file?: {
+    path: string;
+  };
+};
+
+export const updateCoverImage = async (
+  req: UpdateCoverImageRequest,
+  res: Response,
+  next: NextFunction
+) => {
+  let newCoverImage: UploadedAsset | null = null;
 
   try {
+    if (!req.user?._id) {
+      throw new ApiError(401, "Unauthorized request");
+    }
+
     if (!req.file?.path) {
       throw new ApiError(400, "CoverImage is required!");
     }
@@ -407,13 +577,6 @@ export const updateCoverImage = async (req, res, next) => {
     newCoverImage = await cloudinaryUpload(coverImageLocalPath);
     if (!newCoverImage) {
       throw new ApiError(500, "Error uploading the cover image!");
-    }
-
-    const deleteCoverImage = await deleteFileFromCloudinary(
-      req.user.coverImage.public_id
-    );
-    if (deleteCoverImage?.result !== "ok") {
-      throw new ApiError(500, "Error deleting the old cover image!");
     }
 
     const user = await User.findByIdAndUpdate(
@@ -429,31 +592,62 @@ export const updateCoverImage = async (req, res, next) => {
       { new: true }
     ).select("-password -refreshToken");
 
+    if (!user) {
+      throw new ApiError(404, "User not found");
+    }
+
+    const oldCoverImagePublicId = req.user.coverImage?.public_id;
+    if (oldCoverImagePublicId && oldCoverImagePublicId !== newCoverImage.public_id) {
+      const deleteCoverImage = await deleteFileFromCloudinary(oldCoverImagePublicId);
+      if (deleteCoverImage?.result !== "ok") {
+        throw new ApiError(500, "Error deleting the old cover image!");
+      }
+    }
+
     res.status(200).json({
       message: "CoverImage updated successfully.",
       user,
     });
   } catch (error) {
     if (newCoverImage?.public_id) {
-      await deleteFileFromCloudinary(newCoverImage.public_id);
+      try {
+        await deleteFileFromCloudinary(newCoverImage.public_id);
+      } catch {
+        // Preserve original update error when cleanup fails.
+      }
     }
 
     next(error);
   }
 };
 
-export const getUserChannelProfile = async (req, res, next) => {
-  try {
-    const { username } = req.params;
+type GetUserChannelProfileRequest = Request<{ username: string }, {}, unknown> & {
+  user?: {
+    _id: string;
+  };
+};
 
-    if (typeof username !== "string" || !username.trim()) {
+export const getUserChannelProfile = async (
+  req: GetUserChannelProfileRequest,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const username = req.params.username?.trim().toLowerCase();
+
+    if (!username) {
       throw new ApiError(400, "Valid username is required!");
     }
+
+    const requesterObjectId =
+      req.user?._id && isValidObjectId(req.user._id)
+        ? new mongoose.Types.ObjectId(req.user._id)
+        : null;
 
     const channel = await User.aggregate([
       {
         $match: {
-          username: username.toLowerCase(),
+          username,
         },
       },
       {
@@ -477,16 +671,13 @@ export const getUserChannelProfile = async (req, res, next) => {
           subscribersCount: { $size: "$subscribers" },
           channelsSubscribedToCount: { $size: "$subscribedTo" },
           isSubscribed: {
-            $cond: {
-              if: {
-                $and: [
-                  req.user,
-                  { $in: [req.user._id, "$subscribers.subscriber"] },
-                ],
-              },
-              then: true,
-              else: false,
-            },
+            $cond: [
+              requesterObjectId
+                ? { $in: [requesterObjectId, "$subscribers.subscriber"] }
+                : false,
+              true,
+              false,
+            ],
           },
         },
       },
@@ -517,8 +708,22 @@ export const getUserChannelProfile = async (req, res, next) => {
   }
 };
 
-export const getWatchHistory = async (req, res, next) => {
+type GetWatchHistoryRequest = Request<{}, {}, unknown> & {
+  user?: {
+    _id: string;
+  };
+};
+
+export const getWatchHistory = async (
+  req: GetWatchHistoryRequest,
+  res: Response,
+  next: NextFunction
+) => {
   try {
+    if (!req.user?._id || !isValidObjectId(req.user._id)) {
+      throw new ApiError(401, "Unauthorized request");
+    }
+
     const user = await User.aggregate([
       {
         $match: {
@@ -561,9 +766,11 @@ export const getWatchHistory = async (req, res, next) => {
       },
     ]);
 
+    const watchHistory = user[0]?.watchHistory ?? [];
+
     return res.status(200).json({
       message: "Watch history fetched successfully.",
-      watchHistory: user[0].watchHistory,
+      watchHistory,
     });
   } catch (error) {
     next(error);
