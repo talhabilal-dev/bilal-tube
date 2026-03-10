@@ -1,6 +1,12 @@
 import mongoose, { Schema } from "mongoose";
+import type { Types } from "mongoose";
 
-const subscriptionSchema = new Schema(
+export interface ISubscription {
+  subscriber?: Types.ObjectId;
+  channel?: Types.ObjectId;
+}
+
+const subscriptionSchema = new Schema<ISubscription>(
   {
     subscriber: {
       type: Schema.Types.ObjectId, // one who is subscribing

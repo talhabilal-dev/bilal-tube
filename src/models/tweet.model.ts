@@ -1,6 +1,12 @@
 import mongoose, { Schema } from "mongoose";
+import type { Types } from "mongoose";
 
-const tweetSchema = new Schema(
+export interface ITweet {
+  content: string;
+  owner?: Types.ObjectId;
+}
+
+const tweetSchema = new Schema<ITweet>(
   {
     content: {
       type: String,

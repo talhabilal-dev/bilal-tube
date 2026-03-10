@@ -1,6 +1,9 @@
 import jwt from "jsonwebtoken";
 import { User } from "../models/user.model.js";
-import type { NextFunction } from "express";
+import type { NextFunction, Request, Response } from "express";
+import { ENV } from "../config/env.config.js";
+
+
 
 export const authMiddleware = async (req: Request, res: Response, next: NextFunction) => {
   try {
@@ -13,7 +16,11 @@ export const authMiddleware = async (req: Request, res: Response, next: NextFunc
       });
     }
 
-    const decoded = jwt.verify(accessToken, process.env.ACCESS_TOKEN_SECRET);
+    if (!ENV.ACCESS_TOKEN_SECRET) {
+      throw new Error("ACCESS_TOKEN_SECRET is not defined in environment variables");
+    }
+
+    const decoded = jwt.verify(accessToken, ENV.ACCESS_TOKEN_SECRET);
 
     const user = await User.findById(decoded._id).select(
       "-password -refreshToken"

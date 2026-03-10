@@ -1,6 +1,14 @@
 import mongoose, { Schema } from "mongoose";
+import type { Types } from "mongoose";
 
-const commentSchema = new Schema(
+export interface IComment {
+  content: string;
+  contentId: Types.ObjectId;
+  contentType: "Video" | "Tweet";
+  owner: Types.ObjectId;
+}
+
+const commentSchema = new Schema<IComment>(
   {
     content: {
       type: String,

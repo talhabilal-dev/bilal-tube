@@ -1,7 +1,32 @@
-import mongoose, { Schema } from "mongoose";
+import mongoose, {
+  Schema,
+} from "mongoose";
+import type { HydratedDocument, Model, Types } from "mongoose";
 import argon from "argon2";
 
-const userSchema = new Schema(
+interface IImageAsset {
+  url: string;
+  public_id: string;
+}
+
+export interface IUser {
+  username: string;
+  email: string;
+  fullName: string;
+  avatar: IImageAsset;
+  coverImage: IImageAsset;
+  watchHistory: Types.ObjectId[];
+  password: string;
+  refreshToken?: string;
+}
+
+export interface IUserMethods {
+  isValidPassword(password: string): Promise<boolean>;
+}
+
+type UserModel = Model<IUser, {}, IUserMethods>;
+
+const userSchema = new Schema<IUser, UserModel, IUserMethods>(
   {
     username: {
       type: String,
@@ -15,7 +40,7 @@ const userSchema = new Schema(
       type: String,
       required: true,
       unique: true,
-      lowecase: true,
+      lowercase: true,
       trim: true,
     },
     fullName: {
@@ -51,16 +76,18 @@ const userSchema = new Schema(
   }
 );
 
-userSchema.pre("save", async function (next) {
-  if (this.isModified("password")) {
-    this.password = await argon.hash(this.password);
-    next();
+userSchema.pre("save", async function () {
+  const user = this as HydratedDocument<IUser, IUserMethods>;
+
+  if (!user.isModified("password")) {
+    return;
   }
-  next();
+
+  user.password = await argon.hash(user.password);
 });
 
-userSchema.methods.isValidPassword = async function (password) {
+userSchema.methods.isValidPassword = async function (password: string) {
   return await argon.verify(this.password, password);
 };
 
-export const User = mongoose.model("User", userSchema);
+export const User = mongoose.model<IUser, UserModel>("User", userSchema);

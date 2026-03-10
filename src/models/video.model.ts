@@ -1,5 +1,23 @@
 import mongoose, { Schema } from "mongoose";
-const videoSchema = new Schema(
+import type { Types } from "mongoose";
+
+interface IFileAsset {
+  url: string;
+  public_id: string;
+}
+
+export interface IVideo {
+  videoFile: IFileAsset;
+  thumbnail: IFileAsset;
+  title: string;
+  description: string;
+  duration: number;
+  views: number;
+  isPublished: boolean;
+  owner: Types.ObjectId;
+}
+
+const videoSchema = new Schema<IVideo>(
   {
     videoFile: {
       url: { type: String, required: true },

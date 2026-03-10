@@ -1,6 +1,14 @@
 import mongoose, { Schema } from "mongoose";
+import type { Types } from "mongoose";
 
-const likeSchema = new Schema(
+export interface ILike {
+  video?: Types.ObjectId;
+  comment?: Types.ObjectId;
+  tweet?: Types.ObjectId;
+  likedBy?: Types.ObjectId;
+}
+
+const likeSchema = new Schema<ILike>(
   {
     video: {
       type: Schema.Types.ObjectId,

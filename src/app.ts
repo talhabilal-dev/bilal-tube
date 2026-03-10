@@ -6,10 +6,12 @@ const app: express.Application = express();
 app.use(express.json({ limit: "16kb" }));
 app.use(express.urlencoded({ extended: true, limit: "16kb" }));
 app.use(express.static("public"));
+const clientUrl = process.env.CLIENT_URL?.trim() || "*";
+const allowAnyOrigin = clientUrl === "*";
 app.use(
   cors({
-    origin: process.env.CLIENT_URL,
-    credentials: true,
+    origin: allowAnyOrigin ? true : clientUrl,
+    credentials: !allowAnyOrigin,
   })
 );
 app.use(cookieParser());

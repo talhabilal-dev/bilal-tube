@@ -1,6 +1,14 @@
 import mongoose, { Schema } from "mongoose";
+import type { Types } from "mongoose";
 
-const playlistSchema = new Schema(
+export interface IPlaylist {
+  name: string;
+  description: string;
+  videos: Types.ObjectId[];
+  owner?: Types.ObjectId;
+}
+
+const playlistSchema = new Schema<IPlaylist>(
   {
     name: {
       type: String,

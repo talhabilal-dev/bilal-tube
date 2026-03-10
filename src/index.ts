@@ -2,7 +2,7 @@ import { configDotenv } from "dotenv";
 configDotenv({
   path: "./.env",
 });
-import { connectDB } from "./db/db.js";
+import { connectDB } from "./config/db.config.js";
 import app from "./app.js";
 
 connectDB()
@@ -12,5 +12,10 @@ connectDB()
     });
   })
   .catch((error) => {
-    console.log("Error connecting to MongoDB:", error);
+    if (error instanceof Error) {
+      throw new Error(`Error connecting to MongoDB: ${error.message}`);
+    } else {
+      throw new Error("Error connecting to MongoDB");
+    }
+
   });

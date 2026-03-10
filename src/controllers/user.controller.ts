@@ -1,6 +1,8 @@
 import { User } from "../models/user.model.js";
 import mongoose, { isValidObjectId } from "mongoose";
 import { ApiError } from "../utils/ApiError.js";
+import type { NextFunction, Request, Response } from "express";
+import { loginUserSchema, registerUserSchema } from "../schema/user.schema.js";
 import {
   cloudinaryUpload,
   deleteFileFromCloudinary,
@@ -10,21 +12,39 @@ import {
   generateAccessToken,
   generateRefreshToken,
 } from "../utils/generateTokens.js";
+import { ENV } from "../config/env.config.js";
 
-export const registerUser = async (req, res, next) => {
-  let avatar = null;
-  let coverImage = null;
+type UploadedAsset = {
+  secure_url: string;
+  public_id: string;
+};
+
+type RegisterRequest = Request<{}, {}, unknown> & {
+  files?: {
+    avatar?: Array<{ path: string }>;
+    coverImage?: Array<{ path: string }>;
+  };
+};
+
+export const registerUser = async (
+  req: RegisterRequest,
+  res: Response,
+  next: NextFunction
+) => {
+  let uploadedAvatar: UploadedAsset | null = null;
+  let uploadedCoverImage: UploadedAsset | null = null;
 
   try {
-    const { username, email, fullName, password } = req.body;
+    const parsedBody = registerUserSchema.safeParse(req.body);
 
-    if (
-      [username, email, fullName, password].some(
-        (field) => field?.trim() === ""
-      )
-    ) {
-      throw new ApiError(400, "All fields are required");
+    if (!parsedBody.success) {
+      const message = parsedBody.error.issues
+        .map((issue) => issue.message)
+        .join(", ");
+      throw new ApiError(400, message || "Invalid registration data");
     }
+
+    const { username, email, fullName, password } = parsedBody.data;
 
     const existingUser = await User.findOne({
       $or: [{ username }, { email }],
@@ -44,17 +64,18 @@ export const registerUser = async (req, res, next) => {
       throw new ApiError(400, "Avatar is required");
     }
 
-    [avatar, coverImage] = await Promise.all([
-      cloudinaryUpload(avatarLocalPath),
-      cloudinaryUpload(coverImageLocalPath),
-    ]);
+    uploadedAvatar = await cloudinaryUpload(avatarLocalPath);
 
-    if (!avatar) {
+    if (!uploadedAvatar) {
       throw new ApiError(500, "Error uploading avatar");
     }
 
-    if (!coverImage) {
-      throw new ApiError(500, "Error uploading coverImage");
+    if (coverImageLocalPath) {
+      uploadedCoverImage = await cloudinaryUpload(coverImageLocalPath);
+
+      if (!uploadedCoverImage) {
+        throw new ApiError(500, "Error uploading coverImage");
+      }
     }
 
     const newUser = await User.create({
@@ -62,10 +83,14 @@ export const registerUser = async (req, res, next) => {
       email,
       fullName,
       password,
-      avatar: { url: avatar.secure_url, public_id: avatar.public_id },
+      avatar: {
+        url: uploadedAvatar.secure_url,
+        public_id: uploadedAvatar.public_id,
+      },
       coverImage: {
-        url: coverImage.secure_url,
-        public_id: coverImage.public_id,
+        url: uploadedCoverImage?.secure_url ?? uploadedAvatar.secure_url,
+        public_id:
+          uploadedCoverImage?.public_id ?? uploadedAvatar.public_id,
       },
     });
 
@@ -78,23 +103,51 @@ export const registerUser = async (req, res, next) => {
       user: checkUser,
     });
   } catch (error) {
-    if (avatar?.public_id) {
-      await deleteFileFromCloudinary(avatar.public_id);
+    if (
+      typeof error === "object" &&
+      error !== null &&
+      "code" in error &&
+      (error as { code?: number }).code === 11000
+    ) {
+      return next(new ApiError(409, "User already exists"));
     }
-    if (coverImage?.public_id) {
-      await deleteFileFromCloudinary(coverImage.public_id);
+
+    try {
+      if (uploadedAvatar?.public_id) {
+        await deleteFileFromCloudinary(uploadedAvatar.public_id);
+      }
+      if (
+        uploadedCoverImage?.public_id &&
+        uploadedCoverImage.public_id !== uploadedAvatar?.public_id
+      ) {
+        await deleteFileFromCloudinary(uploadedCoverImage.public_id);
+      }
+    } catch {
+      // Do not swallow original registration error when cleanup fails.
     }
+
     next(error);
   }
 };
 
-export const loginUser = async (req, res, next) => {
-  try {
-    const { email, password } = req.body;
+type LoginRequest = Request<{}, {}, unknown>;
 
-    if (!email || !password) {
-      throw new ApiError(400, "Email and password are required");
+export const loginUser = async (
+  req: LoginRequest,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const parsedBody = loginUserSchema.safeParse(req.body);
+
+    if (!parsedBody.success) {
+      const message = parsedBody.error.issues
+        .map((issue) => issue.message)
+        .join(", ");
+      throw new ApiError(400, message || "Invalid login data");
     }
+
+    const { email, password } = parsedBody.data;
 
     const user = await User.findOne({
       email,
@@ -123,10 +176,9 @@ export const loginUser = async (req, res, next) => {
       secure: true,
     };
 
-    const userWithoutPassword = user.toObject();
-
-    delete userWithoutPassword.password;
-    delete userWithoutPassword.refreshToken;
+    const userObject = user.toObject();
+    const { password: _password, refreshToken: _refreshToken, ...safeUser } =
+      userObject;
 
     res
       .status(200)
@@ -134,7 +186,7 @@ export const loginUser = async (req, res, next) => {
       .cookie("refreshToken", refreshToken, options)
       .json({
         message: "User logged in successfully",
-        user: userWithoutPassword,
+        user: safeUser,
       });
   } catch (error) {
     next(error);
@@ -181,9 +233,13 @@ export const refreshAccessToken = async (req, res, next) => {
       throw new ApiError(401, "Refresh token is required");
     }
 
+    if (!ENV.REFRESH_TOKEN_SECRET) {
+      throw new ApiError(500, "Refresh token secret is not configured");
+    }
+
     const decodedToken = jwt.verify(
       incomingRefreshToken,
-      process.env.REFRESH_TOKEN_SECRET
+      ENV.REFRESH_TOKEN_SECRET
     );
 
     const user = await User.findById(decodedToken?._id);
