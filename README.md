@@ -1,106 +1,227 @@
+# Bilal Tube Backend
 
----
+TypeScript backend for a YouTube-like app built with Express, MongoDB, JWT auth, Cloudinary uploads, and Zod validation.
 
-# 🎥 YouTube-Like Backend  
+![Bilal Tube Banner](https://res.cloudinary.com/dvdktrhsz/image/upload/v1773217977/Gemini_Generated_Image_c13qffc13qffc13q_mrl8ku.png)
 
-A robust backend for a video-sharing platform inspired by YouTube, built with **Node.js** and **Express.js**. This backend supports video uploads, user authentication, and dynamic content delivery.
+## Why This Project Was Built
 
----
+Bilal Tube backend was built as a real-world learning and portfolio project to practice production-style backend engineering instead of just basic CRUD demos.
 
-## 🚀 Features  
+The goal is to model the core building blocks of a modern media platform:
 
-- **User Authentication**: Secure sign-up, login, and session management.  
-- **Video Uploads**: Upload and retrieve videos efficiently.  
-- **Search and Filtering**: Query videos by title, tags, or categories.  
-- **Scalable Architecture**: Designed for real-world traffic and future enhancements.  
+- secure authentication and session/token flow
+- media upload and asset lifecycle handling
+- feature-rich social interactions (tweets, comments, likes, subscriptions)
+- modular architecture that can be maintained and extended
 
----
+This project is intentionally designed to show backend depth: validation, middleware layering, API documentation, and domain-based route/controller separation.
 
-## 🛠️ Tech Stack  
+## What It Demonstrates
 
-- **Backend**: Node.js, Express.js  
-- **Database**: MongoDB (choose based on your deployment)  
-- **Middleware**: Custom middleware for error handling, authentication, etc.  
-- **Multer**: File upload handling for video uploads.
-- **JWT**: JSON Web Tokens for user authentication.
-- **Cloudinary**: Image hosting for video thumbnails.
+This codebase demonstrates practical backend patterns used in professional Node.js projects:
 
----
+- Type-safe API development with TypeScript and strict compiler settings
+- Validation-first request handling using Zod schemas in `src/schema/`
+- JWT auth flow with access and refresh token strategy
+- Cloudinary integration for media upload and cleanup
+- Mongoose data modeling for multi-entity relationships
+- OpenAPI generation from source schemas for up-to-date docs
 
-## 📂 Project Structure  
+## Why You Should Care
 
+If you are hiring, reviewing, or learning from this project, it shows more than just endpoint creation.
+
+- It proves end-to-end API thinking, from request validation to response contracts.
+- It shows maintainability practices: modular folders, reusable request types, and centralized config.
+- It includes developer experience improvements: Swagger docs, typed schemas, and predictable scripts.
+
+In short, this project is a backend engineering showcase that balances learning goals with practical architecture.
+
+## What This Project Includes
+
+- User authentication and profile management
+- Video publish, update, delete, views, and listing
+- Tweets, comments, likes, subscriptions, playlists, dashboard stats
+- File uploads with Multer + Cloudinary
+- OpenAPI docs powered by Zod schemas and Swagger UI
+
+## Tech Stack
+
+- Runtime: Node.js
+- Language: TypeScript
+- Framework: Express 5
+- Database: MongoDB + Mongoose
+- Validation: Zod
+- Auth: JWT + httpOnly cookies
+- Uploads: Multer + Cloudinary
+- Docs: `@asteasolutions/zod-to-openapi` + `swagger-ui-express`
+- Package manager: pnpm
+
+## Project Structure
+
+```text
+src/
+  app.ts
+  index.ts
+  config/
+  controllers/
+  docs/
+  middlewares/
+  models/
+  routes/
+  schema/
+  types/
+  utils/
 ```
-📦 src
-├── 📁 controllers   # Business logic for API endpoints
-├── 📁 db            # Database connection and configuration
-├── 📁 middlewares   # Custom middleware (e.g., authentication, validation)
-├── 📁 models        # Database schema/models
-├── 📁 routes        # API route handlers
-├── 📁 utils         # Helper functions and utilities
-├── 📄 app.js        # Express application setup
-└── 📄 index.js      # Application entry point
+
+## Getting Started
+
+1. Clone and open the project.
+2. Install dependencies:
+
+```bash
+pnpm install
 ```
 
----
+3. Create `.env` in project root.
+4. Run development server:
 
-## ⚡ Quick Start  
+```bash
+pnpm dev
+```
 
-1. **Clone the repository**:  
+5. Build and run production:
 
-   ```bash
-   git clone https://github.com/talhabilal-dev/bilal-tube.git
-   cd youtube-backend
-   ```
+```bash
+pnpm build
+pnpm start
+```
 
-2. **Install dependencies**:  
+## Scripts
 
-   ```bash
-   npm install
-   ```
+- `pnpm dev` -> Run with `tsx` in development
+- `pnpm build` -> Compile TypeScript to `dist/`
+- `pnpm start` -> Run compiled server
+- `pnpm lint` -> Format source files with Prettier
 
-3. **Add environment variables**:  
-   Create a `.env` file in the root directory with:  
+## Environment Variables
 
-   ```
-   PORT=8000
-   DATABASE_URL=<your_database_url>
-   JWT_SECRET=<your_secret_key>
-   ```
+Create `.env` and set these values:
 
-4. **Run the development server**:  
+```env
+PORT=8000
+MONGO_URI=mongodb://localhost:27017/bilal-tube
 
-   ```bash
-   npm start
-   ```
+CLIENT_URL=http://localhost:5173
+OPENAPI_SERVER_URLS=http://localhost:8000,https://api.example.com
 
-5. **Test the app**:  
-   Visit `http://localhost:8000` to verify the welcome message.  
+ACCESS_TOKEN_SECRET=your_access_token_secret
+ACCESS_TOKEN_EXPIRY=1d
+REFRESH_TOKEN_SECRET=your_refresh_token_secret
+REFRESH_TOKEN_EXPIRY=7d
 
----
+CLOUD_NAME=your_cloudinary_cloud_name
+CLOUDINARY_API_KEY=your_cloudinary_api_key
+CLOUDINARY_API_SECRET=your_cloudinary_api_secret
 
-## 🌐 API Overview  
+NODE_ENV=development
+```
 
-The backend includes endpoints for:  
+Notes:
 
-- **Users**: Sign up, login, profile management.  
-- **Videos**: Upload, stream, retrieve video metadata.  
-- **Search**: Find videos by title, tags, or categories.  
+- `OPENAPI_SERVER_URLS` accepts multiple comma-separated URLs.
+- If `OPENAPI_SERVER_URLS` is not set, docs default to `http://localhost:8000`.
 
-> **Note**: Complete API documentation will be added soon.  
+## API Base URL
 
----
+`/api/v1`
 
-## 🧑‍💻 Contribution  
+## API Docs
 
-Contributions are welcome! Follow these steps:  
+- Swagger UI: `/api-docs`
+- OpenAPI JSON: `/openapi.json`
 
-1. Fork the repository.  
-2. Create a new feature branch: `git checkout -b feature-name`.  
-3. Commit your changes and push the branch.  
-4. Submit a pull request for review.  
+Example local URLs:
 
----
+- `http://localhost:8000/api-docs`
+- `http://localhost:8000/openapi.json`
 
-## 📄 License  
+## Route Groups
 
-This project is licensed under the [MIT License](LICENSE).  
+- `/healthcheck`
+- `/users`
+- `/tweets`
+- `/subscriptions`
+- `/videos`
+- `/comments`
+- `/likes`
+- `/playlist`
+- `/dashboard`
+
+All route mounts are defined in `src/app.ts`.
+
+## Quick Health Check
+
+After starting the server:
+
+- `GET /` -> welcome text
+- `GET /api/v1/healthcheck` -> service health endpoint
+
+## Development Notes
+
+- Request validation schemas live in `src/schema/`.
+- Controllers consume those schemas for safer runtime validation.
+- Auth middleware reads JWT from cookies or `Authorization: Bearer <token>`.
+
+## Flow Diagrams
+
+To keep the architecture easy to understand, the system flow is split into smaller diagrams instead of one large chart.
+
+### 1. Authentication Flow
+
+```mermaid
+flowchart TD
+  A[Client] --> B[POST /api/v1/users/login]
+  B --> C[Validate body with Zod]
+  C --> D[Find user in MongoDB]
+  D --> E{Password valid?}
+  E -- No --> F[401 Unauthorized]
+  E -- Yes --> G[Generate access and refresh tokens]
+  G --> H[Store refresh token in DB]
+  H --> I[Set httpOnly cookies]
+  I --> J[Return success response]
+```
+
+### 2. Video Publish Flow
+
+```mermaid
+flowchart TD
+  A[Client] --> B[POST /api/v1/videos]
+  B --> C[Auth middleware]
+  C --> D[Multer parses video and thumbnail]
+  D --> E[Validate body with Zod]
+  E --> F[Upload files to Cloudinary]
+  F --> G[Create Video document in MongoDB]
+  G --> H{DB write success?}
+  H -- No --> I[Delete uploaded Cloudinary assets]
+  I --> J[500 Error response]
+  H -- Yes --> K[201 Created response]
+```
+
+### 3. Engagement Flow (Comments and Likes)
+
+```mermaid
+flowchart TD
+  A[Client] --> B[Auth middleware]
+  B --> C[Comment or Like endpoint]
+  C --> D[Validate params/body with Zod]
+  D --> E{Target exists and ID valid?}
+  E -- No --> F[400/404 Error response]
+  E -- Yes --> G[Create, update, or toggle MongoDB record]
+  G --> H[Return updated state]
+```
+
+## License
+
+ISC
