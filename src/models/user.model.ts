@@ -1,6 +1,4 @@
-import mongoose, {
-  Schema,
-} from "mongoose";
+import mongoose, { Schema } from "mongoose";
 import type { HydratedDocument, Model, Types } from "mongoose";
 import argon from "argon2";
 

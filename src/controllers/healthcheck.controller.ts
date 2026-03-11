@@ -1,4 +1,8 @@
-export const healthcheck = async (req, res) => {
+import type { AppRequest } from "../types/request.js";
+import type { Response } from "express";
+
+type HealthcheckRequest = AppRequest<{}, unknown>;
+export const healthcheck = async (req: HealthcheckRequest, res: Response) => {
   try {
     res.status(200).json({
       status: "OK",

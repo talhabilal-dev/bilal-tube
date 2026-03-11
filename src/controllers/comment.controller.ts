@@ -1,24 +1,52 @@
-import mongoose, { isValidObjectId } from "mongoose";
+import { isValidObjectId } from "mongoose";
+import type { NextFunction, Response } from "express";
 import { Video } from "../models/video.model.js";
 import { Tweet } from "../models/tweet.model.js";
 import { Comment } from "../models/comment.model.js";
 import { ApiError } from "../utils/ApiError.js";
+import type { AppRequest } from "../types/request.js";
+import {
+  commentIdParamSchema,
+  createCommentSchema,
+  paginationQuerySchema,
+  tweetIdParamSchema,
+  updateCommentSchema,
+  videoIdParamSchema,
+} from "../schema/comment.schema.js";
 
-export const getVideoComments = async (req, res, next) => {
+type GetVideoCommentsRequest = AppRequest<{ videoId: string }, unknown>;
+
+export const getVideoComments = async (
+  req: GetVideoCommentsRequest,
+  res: Response,
+  next: NextFunction
+) => {
   try {
-    const { videoId } = req.params;
-    const { page = 1, limit = 10 } = req.query;
-
-    if (!videoId) {
-      throw new ApiError(400, "Video ID is required.");
+    const parsedParams = videoIdParamSchema.safeParse(req.params);
+    if (!parsedParams.success) {
+      const message = parsedParams.error.issues
+        .map((issue) => issue.message)
+        .join(", ");
+      throw new ApiError(400, message || "Invalid video ID parameter");
     }
+
+    const parsedQuery = paginationQuerySchema.safeParse(req.query);
+    if (!parsedQuery.success) {
+      const message = parsedQuery.error.issues
+        .map((issue) => issue.message)
+        .join(", ");
+      throw new ApiError(400, message || "Invalid pagination query params");
+    }
+
+    const { videoId } = parsedParams.data;
+    const { page, limit } = parsedQuery.data;
 
     if (!isValidObjectId(videoId)) {
       throw new ApiError(400, "Invalid Video ID format.");
     }
 
-    const currentPage = parseInt(page, 10);
-    const perPage = parseInt(limit, 10);
+    const currentPage = page;
+    const perPage = limit;
 
     if (currentPage <= 0 || perPage <= 0) {
       throw new ApiError(400, "Page and limit must be positive integers.");
@@ -52,21 +80,39 @@ export const getVideoComments = async (req, res, next) => {
   }
 };
 
-export const getTweetComments = async (req, res, next) => {
-  try {
-    const { tweetId } = req.params;
-    const { page = 1, limit = 10 } = req.query;
+type GetTweetCommentsRequest = AppRequest<{ tweetId: string }, unknown>;
 
-    if (!tweetId) {
-      throw new ApiError(400, "Tweet ID is required.");
+export const getTweetComments = async (
+  req: GetTweetCommentsRequest,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const parsedParams = tweetIdParamSchema.safeParse(req.params);
+    if (!parsedParams.success) {
+      const message = parsedParams.error.issues
+        .map((issue) => issue.message)
+        .join(", ");
+      throw new ApiError(400, message || "Invalid tweet ID parameter");
     }
+
+    const parsedQuery = paginationQuerySchema.safeParse(req.query);
+    if (!parsedQuery.success) {
+      const message = parsedQuery.error.issues
+        .map((issue) => issue.message)
+        .join(", ");
+      throw new ApiError(400, message || "Invalid pagination query params");
+    }
+
+    const { tweetId } = parsedParams.data;
+    const { page, limit } = parsedQuery.data;
 
     if (!isValidObjectId(tweetId)) {
       throw new ApiError(400, "Invalid Tweet ID format.");
     }
 
-    const currentPage = parseInt(page, 10);
-    const perPage = parseInt(limit, 10);
+    const currentPage = page;
+    const perPage = limit;
 
     if (currentPage <= 0 || perPage <= 0) {
       throw new ApiError(400, "Page and limit must be positive integers.");
@@ -100,14 +146,40 @@ export const getTweetComments = async (req, res, next) => {
   }
 };
 
-export const addCommentToVideo = async (req, res, next) => {
+type AddCommentToVideoRequest = AppRequest<{ videoId: string }, unknown>;
+
+export const addCommentToVideo = async (
+  req: AddCommentToVideoRequest,
+  res: Response,
+  next: NextFunction
+) => {
   try {
-    const { videoId } = req.params;
-    const { content } = req.body;
+    const parsedParams = videoIdParamSchema.safeParse(req.params);
+    if (!parsedParams.success) {
+      const message = parsedParams.error.issues
+        .map((issue) => issue.message)
+        .join(", ");
+      throw new ApiError(400, message || "Invalid video ID parameter");
+    }
+
+    const parsedBody = createCommentSchema.safeParse(req.body);
+    if (!parsedBody.success) {
+      const message = parsedBody.error.issues
+        .map((issue) => issue.message)
+        .join(", ");
+      throw new ApiError(400, message || "Invalid comment payload");
+    }
+
+    if (!req.user?._id) {
+      throw new ApiError(401, "Unauthorized request");
+    }
+
+    const { videoId } = parsedParams.data;
+    const { content } = parsedBody.data;
     const userId = req.user._id;
 
-    if (!isValidObjectId(videoId) || !content || !videoId) {
-      throw new ApiError(400, "Video ID and comment content are required.");
+    if (!isValidObjectId(videoId)) {
+      throw new ApiError(400, "Video ID is required.");
     }
 
     const video = await Video.findById(videoId);
@@ -135,14 +207,40 @@ export const addCommentToVideo = async (req, res, next) => {
   }
 };
 
-export const addCommentToTweet = async (req, res, next) => {
+type AddCommentToTweetRequest = AppRequest<{ tweetId: string }, unknown>;
+
+export const addCommentToTweet = async (
+  req: AddCommentToTweetRequest,
+  res: Response,
+  next: NextFunction
+) => {
   try {
-    const { tweetId } = req.params;
-    const { content } = req.body;
+    const parsedParams = tweetIdParamSchema.safeParse(req.params);
+    if (!parsedParams.success) {
+      const message = parsedParams.error.issues
+        .map((issue) => issue.message)
+        .join(", ");
+      throw new ApiError(400, message || "Invalid tweet ID parameter");
+    }
+
+    const parsedBody = createCommentSchema.safeParse(req.body);
+    if (!parsedBody.success) {
+      const message = parsedBody.error.issues
+        .map((issue) => issue.message)
+        .join(", ");
+      throw new ApiError(400, message || "Invalid comment payload");
+    }
+
+    if (!req.user?._id) {
+      throw new ApiError(401, "Unauthorized request");
+    }
+
+    const { tweetId } = parsedParams.data;
+    const { content } = parsedBody.data;
     const userId = req.user._id;
 
-    if (!isValidObjectId(tweetId) || !content || !tweetId) {
-      throw new ApiError(400, "Tweet ID and comment content are required.");
+    if (!isValidObjectId(tweetId)) {
+      throw new ApiError(400, "Tweet ID is required.");
     }
 
     const tweet = await Tweet.findById(tweetId);
@@ -170,18 +268,40 @@ export const addCommentToTweet = async (req, res, next) => {
   }
 };
 
-export const updateComment = async (req, res, next) => {
-  try {
-    const { commentId } = req.params;
-    const { content } = req.body;
-    const userId = req.user._id;
+type UpdateCommentRequest = AppRequest<{ commentId: string }, unknown>;
 
-    if (!isValidObjectId(commentId) || !commentId) {
-      throw new ApiError(400, "Comment ID is required.");
+export const updateComment = async (
+  req: UpdateCommentRequest,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const parsedParams = commentIdParamSchema.safeParse(req.params);
+    if (!parsedParams.success) {
+      const message = parsedParams.error.issues
+        .map((issue) => issue.message)
+        .join(", ");
+      throw new ApiError(400, message || "Invalid comment ID parameter");
     }
 
-    if (!content) {
-      throw new ApiError(400, "Comment content is required.");
+    const parsedBody = updateCommentSchema.safeParse(req.body);
+    if (!parsedBody.success) {
+      const message = parsedBody.error.issues
+        .map((issue) => issue.message)
+        .join(", ");
+      throw new ApiError(400, message || "Invalid comment payload");
+    }
+
+    if (!req.user?._id) {
+      throw new ApiError(401, "Unauthorized request");
+    }
+
+    const { commentId } = parsedParams.data;
+    const { content } = parsedBody.data;
+    const userId = req.user._id;
+
+    if (!isValidObjectId(commentId)) {
+      throw new ApiError(400, "Comment ID is required.");
     }
 
     const comment = await Comment.findById(commentId);
@@ -208,12 +328,31 @@ export const updateComment = async (req, res, next) => {
     next(error);
   }
 };
-export const deleteComment = async (req, res, next) => {
+
+type DeleteCommentRequest = AppRequest<{ commentId: string }, unknown>;
+
+export const deleteComment = async (
+  req: DeleteCommentRequest,
+  res: Response,
+  next: NextFunction
+) => {
   try {
-    const { commentId } = req.params;
+    const parsedParams = commentIdParamSchema.safeParse(req.params);
+    if (!parsedParams.success) {
+      const message = parsedParams.error.issues
+        .map((issue) => issue.message)
+        .join(", ");
+      throw new ApiError(400, message || "Invalid comment ID parameter");
+    }
+
+    if (!req.user?._id) {
+      throw new ApiError(401, "Unauthorized request");
+    }
+
+    const { commentId } = parsedParams.data;
     const userId = req.user._id;
 
-    if (!isValidObjectId(commentId) || !commentId) {
+    if (!isValidObjectId(commentId)) {
       throw new ApiError(400, "Comment ID is required.");
     }
 

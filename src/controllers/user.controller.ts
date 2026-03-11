@@ -19,18 +19,14 @@ import {
   generateRefreshToken,
 } from "../utils/generateTokens.js";
 import { ENV } from "../config/env.config.js";
+import type { AppRequest } from "../types/request.js";
 
 type UploadedAsset = {
   secure_url: string;
   public_id: string;
 };
 
-type RegisterRequest = Request<{}, {}, unknown> & {
-  files?: {
-    avatar?: Array<{ path: string }>;
-    coverImage?: Array<{ path: string }>;
-  };
-};
+type RegisterRequest = AppRequest<{}, unknown>;
 
 export const registerUser = async (
   req: RegisterRequest,
@@ -63,8 +59,15 @@ export const registerUser = async (
       );
     }
 
-    const avatarLocalPath = req.files?.avatar?.[0]?.path;
-    const coverImageLocalPath = req.files?.coverImage?.[0]?.path;
+    const files = req.files as
+      | {
+          avatar?: Express.Multer.File[];
+          coverImage?: Express.Multer.File[];
+        }
+      | undefined;
+
+    const avatarLocalPath = files?.avatar?.[0]?.path;
+    const coverImageLocalPath = files?.coverImage?.[0]?.path;
 
     if (!avatarLocalPath) {
       throw new ApiError(400, "Avatar is required");
@@ -95,8 +98,7 @@ export const registerUser = async (
       },
       coverImage: {
         url: uploadedCoverImage?.secure_url ?? uploadedAvatar.secure_url,
-        public_id:
-          uploadedCoverImage?.public_id ?? uploadedAvatar.public_id,
+        public_id: uploadedCoverImage?.public_id ?? uploadedAvatar.public_id,
       },
     });
 
@@ -136,7 +138,7 @@ export const registerUser = async (
   }
 };
 
-type LoginRequest = Request<{}, {}, unknown>;
+type LoginRequest = AppRequest<{}, unknown>;
 
 export const loginUser = async (
   req: LoginRequest,
@@ -183,8 +185,11 @@ export const loginUser = async (
     };
 
     const userObject = user.toObject();
-    const { password: _password, refreshToken: _refreshToken, ...safeUser } =
-      userObject;
+    const {
+      password: _password,
+      refreshToken: _refreshToken,
+      ...safeUser
+    } = userObject;
 
     res
       .status(200)
@@ -199,11 +204,7 @@ export const loginUser = async (
   }
 };
 
-type LogOutRequest = Request<{}, {}, unknown> & {
-  user: {
-    _id: string;
-  };
-};
+type LogOutRequest = AppRequest;
 
 export const logOutUser = async (
   req: LogOutRequest,
@@ -248,11 +249,7 @@ export const logOutUser = async (
   }
 };
 
-type RefreshAccessTokenRequest = Request<{}, {}, unknown> & {
-  cookies?: {
-    refreshToken?: string;
-  };
-};
+type RefreshAccessTokenRequest = AppRequest<{}, unknown>;
 
 type RefreshTokenPayload = JwtPayload & {
   _id: string;
@@ -336,11 +333,7 @@ export const refreshAccessToken = async (
   }
 };
 
-type ChangePasswordRequest = Request<{}, {}, unknown> & {
-  user: {
-    _id: string;
-  };
-};
+type ChangePasswordRequest = AppRequest<{}, unknown>;
 
 export const changePassword = async (
   req: ChangePasswordRequest,
@@ -358,6 +351,10 @@ export const changePassword = async (
     }
 
     const { oldPassword, currentPassword } = parsedBody.data;
+
+    if (!req.user?._id) {
+      throw new ApiError(401, "Unauthorized request");
+    }
 
     const user = await User.findById(req.user._id);
 
@@ -382,11 +379,7 @@ export const changePassword = async (
   }
 };
 
-type AuthenticatedRequest = Request<{}, {}, unknown> & {
-  user: {
-    _id: string;
-  };
-};
+type AuthenticatedRequest = AppRequest;
 
 export const getCurrentUser = async (
   req: AuthenticatedRequest,
@@ -415,11 +408,7 @@ export const getCurrentUser = async (
   }
 };
 
-type UpdateAccountDetailsRequest = Request<{}, {}, unknown> & {
-  user: {
-    _id: string;
-  };
-};
+type UpdateAccountDetailsRequest = AppRequest<{}, unknown>;
 
 export const updateAccountDetails = async (
   req: UpdateAccountDetailsRequest,
@@ -467,17 +456,7 @@ export const updateAccountDetails = async (
   }
 };
 
-type UpdateAvatarRequest = Request<{}, {}, unknown> & {
-  user: {
-    _id: string;
-    avatar: {
-      public_id: string;
-    };
-  };
-  file?: {
-    path: string;
-  };
-};
+type UpdateAvatarRequest = AppRequest<{}, unknown>;
 
 export const updateAvatar = async (
   req: UpdateAvatarRequest,
@@ -544,17 +523,7 @@ export const updateAvatar = async (
   }
 };
 
-type UpdateCoverImageRequest = Request<{}, {}, unknown> & {
-  user: {
-    _id: string;
-    coverImage: {
-      public_id: string;
-    };
-  };
-  file?: {
-    path: string;
-  };
-};
+type UpdateCoverImageRequest = AppRequest<{}, unknown>;
 
 export const updateCoverImage = async (
   req: UpdateCoverImageRequest,
@@ -597,8 +566,13 @@ export const updateCoverImage = async (
     }
 
     const oldCoverImagePublicId = req.user.coverImage?.public_id;
-    if (oldCoverImagePublicId && oldCoverImagePublicId !== newCoverImage.public_id) {
-      const deleteCoverImage = await deleteFileFromCloudinary(oldCoverImagePublicId);
+    if (
+      oldCoverImagePublicId &&
+      oldCoverImagePublicId !== newCoverImage.public_id
+    ) {
+      const deleteCoverImage = await deleteFileFromCloudinary(
+        oldCoverImagePublicId
+      );
       if (deleteCoverImage?.result !== "ok") {
         throw new ApiError(500, "Error deleting the old cover image!");
       }
@@ -621,11 +595,7 @@ export const updateCoverImage = async (
   }
 };
 
-type GetUserChannelProfileRequest = Request<{ username: string }, {}, unknown> & {
-  user?: {
-    _id: string;
-  };
-};
+type GetUserChannelProfileRequest = AppRequest<{ username: string }, unknown>;
 
 export const getUserChannelProfile = async (
   req: GetUserChannelProfileRequest,
@@ -708,11 +678,7 @@ export const getUserChannelProfile = async (
   }
 };
 
-type GetWatchHistoryRequest = Request<{}, {}, unknown> & {
-  user?: {
-    _id: string;
-  };
-};
+type GetWatchHistoryRequest = AppRequest<{}, unknown>;
 
 export const getWatchHistory = async (
   req: GetWatchHistoryRequest,

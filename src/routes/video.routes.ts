@@ -12,7 +12,7 @@ import {
   getAllVideos,
 } from "../controllers/video.controller.js";
 
-const router = Router();
+const router: Router = Router();
 
 router.route("/").post(
   authMiddleware,

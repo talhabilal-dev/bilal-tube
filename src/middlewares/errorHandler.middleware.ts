@@ -6,7 +6,12 @@ interface CustomError extends Error {
   stack?: string;
 }
 
-export const errorHandler = (err: CustomError, req: Request, res: Response, next: NextFunction) => {
+export const errorHandler = (
+  err: CustomError,
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
   const statusCode = err.statusCode || 500;
 
   res.status(statusCode).json({

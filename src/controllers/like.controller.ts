@@ -1,13 +1,40 @@
-import mongoose, { isValidObjectId } from "mongoose";
+import { isValidObjectId } from "mongoose";
+import type { NextFunction, Response } from "express";
+import { z } from "zod";
 import { Like } from "../models/like.model.js";
 import { ApiError } from "../utils/ApiError.js";
+import type { AppRequest } from "../types/request.js";
+import {
+  commentIdParamSchema,
+  videoIdParamSchema,
+  tweetIdParamSchema,
+} from "../schema/like.schema.js";
 
-export const toggleVideoLike = async (req, res, next) => {
+type ToggleVideoLikeRequest = AppRequest<{ videoId: string }, unknown>;
+
+export const toggleVideoLike = async (
+  req: ToggleVideoLikeRequest,
+  res: Response,
+  next: NextFunction
+) => {
   try {
-    const { videoId } = req.params;
+    const parsedParams = videoIdParamSchema.safeParse(req.params);
+    if (!parsedParams.success) {
+      const message = parsedParams.error.issues
+        .map((issue) => issue.message)
+        .join(", ");
+      throw new ApiError(400, message || "Invalid video ID parameter");
+    }
+
+    const { videoId } = parsedParams.data;
+
+    if (!req.user?._id) {
+      throw new ApiError(401, "Unauthorized request");
+    }
+
     const userId = req.user._id;
 
-    if (!isValidObjectId(videoId) || !videoId) {
+    if (!isValidObjectId(videoId)) {
       throw new ApiError(400, "Video ID is required");
     }
 
@@ -32,12 +59,31 @@ export const toggleVideoLike = async (req, res, next) => {
   }
 };
 
-export const toggleCommentLike = async (req, res, next) => {
+type ToggleCommentLikeRequest = AppRequest<{ commentId: string }, unknown>;
+
+export const toggleCommentLike = async (
+  req: ToggleCommentLikeRequest,
+  res: Response,
+  next: NextFunction
+) => {
   try {
-    const { commentId } = req.params;
+    const parsedParams = commentIdParamSchema.safeParse(req.params);
+    if (!parsedParams.success) {
+      const message = parsedParams.error.issues
+        .map((issue) => issue.message)
+        .join(", ");
+      throw new ApiError(400, message || "Invalid comment ID parameter");
+    }
+
+    const { commentId } = parsedParams.data;
+
+    if (!req.user?._id) {
+      throw new ApiError(401, "Unauthorized request");
+    }
+
     const userId = req.user._id;
 
-    if (!isValidObjectId(commentId) || !commentId) {
+    if (!isValidObjectId(commentId)) {
       throw new ApiError(400, "Comment ID is required");
     }
 
@@ -63,12 +109,31 @@ export const toggleCommentLike = async (req, res, next) => {
   }
 };
 
-export const toggleTweetLike = async (req, res, next) => {
+type ToggleTweetLikeRequest = AppRequest<{ tweetId: string }, unknown>;
+
+export const toggleTweetLike = async (
+  req: ToggleTweetLikeRequest,
+  res: Response,
+  next: NextFunction
+) => {
   try {
-    const { tweetId } = req.params;
+    const parsedParams = tweetIdParamSchema.safeParse(req.params);
+    if (!parsedParams.success) {
+      const message = parsedParams.error.issues
+        .map((issue) => issue.message)
+        .join(", ");
+      throw new ApiError(400, message || "Invalid tweet ID parameter");
+    }
+
+    const { tweetId } = parsedParams.data;
+
+    if (!req.user?._id) {
+      throw new ApiError(401, "Unauthorized request");
+    }
+
     const userId = req.user._id;
 
-    if (!isValidObjectId(tweetId) || !tweetId) {
+    if (!isValidObjectId(tweetId)) {
       throw new ApiError(400, "Tweet ID is required");
     }
 
@@ -82,21 +147,27 @@ export const toggleTweetLike = async (req, res, next) => {
       return res.status(200).json({
         message: "Like removed successfully",
       });
-    } else {
-      const newLike = await Like.create({ tweet: tweetId, likedBy: userId });
-      return res.status(201).json({
-        message: "Like added successfully",
-        like: newLike,
-      });
     }
+
+    const newLike = await Like.create({ tweet: tweetId, likedBy: userId });
+    return res.status(201).json({
+      message: "Like added successfully",
+      like: newLike,
+    });
   } catch (error) {
     next(error);
   }
 };
 
-export const getLikedVideos = async (req, res, next) => {
+type GetLikedVideosRequest = AppRequest<{}, unknown>;
+
+export const getLikedVideos = async (
+  req: GetLikedVideosRequest,
+  res: Response,
+  next: NextFunction
+) => {
   try {
-    const userId = req.user._id;
+    const userId = req.user?._id;
 
     if (!userId) {
       throw new ApiError(401, "User not authenticated");

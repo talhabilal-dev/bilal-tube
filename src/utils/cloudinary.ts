@@ -1,17 +1,20 @@
-import { configDotenv } from "dotenv";
-configDotenv({
-  path: "./.env",
-});
 import { v2 as cloudinary } from "cloudinary";
 import fs from "fs";
+import { ENV } from "../config/env.config.js";
+
+if (!ENV.CLOUDINARY_API_KEY || !ENV.CLOUDINARY_API_SECRET || !ENV.CLOUD_NAME) {
+  throw new Error(
+    "Cloudinary configuration is missing. Please check your environment variables."
+  );
+}
 
 cloudinary.config({
-  cloud_name: process.env.CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET,
+  cloud_name: ENV.CLOUD_NAME,
+  api_key: ENV.CLOUDINARY_API_KEY,
+  api_secret: ENV.CLOUDINARY_API_SECRET,
 });
 
-export const cloudinaryUpload = async (localFilePath) => {
+export const cloudinaryUpload = async (localFilePath: string) => {
   try {
     const response = await cloudinary.uploader.upload(localFilePath, {
       resource_type: "auto",
@@ -26,7 +29,7 @@ export const cloudinaryUpload = async (localFilePath) => {
   }
 };
 export const deleteFileFromCloudinary = async (
-  publicId,
+  publicId: string,
   resourceType = "image"
 ) => {
   try {

@@ -1,15 +1,38 @@
-import mongoose, { isValidObjectId } from "mongoose";
+import { isValidObjectId } from "mongoose";
+import type { NextFunction, Response } from "express";
 import { Tweet } from "../models/tweet.model.js";
 import { ApiError } from "../utils/ApiError.js";
 import { Like } from "../models/like.model.js";
 import { Comment } from "../models/comment.model.js";
+import type { AppRequest } from "../types/request.js";
+import {
+  createTweetSchema,
+  getUserTweetsQuerySchema,
+  updateTweetSchema,
+} from "../schema/tweet.schema.js";
 
-export const createTweet = async (req, res, next) => {
+type CreateTweetRequest = AppRequest<{}, unknown>;
+
+export const createTweet = async (
+  req: CreateTweetRequest,
+  res: Response,
+  next: NextFunction
+) => {
   try {
-    const { content } = req.body;
-    if (!content) {
-      throw new ApiError(400, "Content is required!");
+    const parsedBody = createTweetSchema.safeParse(req.body);
+
+    if (!parsedBody.success) {
+      const message = parsedBody.error.issues
+        .map((issue) => issue.message)
+        .join(", ");
+      throw new ApiError(400, message || "Invalid tweet payload");
     }
+
+    if (!req.user?._id) {
+      throw new ApiError(401, "Unauthorized request");
+    }
+
+    const { content } = parsedBody.data;
 
     const tweet = await Tweet.create({
       content,
@@ -30,29 +53,45 @@ export const createTweet = async (req, res, next) => {
   }
 };
 
-export const getUserTweets = async (req, res, next) => {
+type GetUserTweetsRequest = AppRequest<{ userId: string }, unknown>;
+
+export const getUserTweets = async (
+  req: GetUserTweetsRequest,
+  res: Response,
+  next: NextFunction
+) => {
   try {
     const { userId } = req.params;
-    const {
-      page = 1,
-      limit = 10,
-      sortBy = "createdAt",
-      sortType = "desc",
-    } = req.query;
+
+    const parsedQuery = getUserTweetsQuerySchema.safeParse(req.query);
+
+    if (!parsedQuery.success) {
+      const message = parsedQuery.error.issues
+        .map((issue) => issue.message)
+        .join(", ");
+      throw new ApiError(400, message || "Invalid tweets query params");
+    }
+
+    const { page, limit, sortBy, sortType } = parsedQuery.data;
 
     if (!userId) {
       throw new ApiError(400, "User ID is required.");
     }
 
-    const currentPage = parseInt(page, 10);
-    const perPage = parseInt(limit, 10);
+    if (!isValidObjectId(userId)) {
+      throw new ApiError(400, "Invalid User ID format.");
+    }
+
+    const currentPage = page;
+    const perPage = limit;
 
     if (currentPage <= 0 || perPage <= 0) {
       throw new ApiError(400, "Page and limit must be positive integers.");
     }
 
-    const sortOptions = {};
-    sortOptions[sortBy] = sortType.toLowerCase() === "asc" ? 1 : -1;
+    const sortOptions: Record<string, 1 | -1> = {
+      [sortBy]: sortType === "asc" ? 1 : -1,
+    };
 
     const tweets = await Tweet.find({ owner: userId })
       .sort(sortOptions)
@@ -76,17 +115,27 @@ export const getUserTweets = async (req, res, next) => {
   }
 };
 
-export const updateTweet = async (req, res, next) => {
+type UpdateTweetRequest = AppRequest<{ tweetId: string }, unknown>;
+
+export const updateTweet = async (
+  req: UpdateTweetRequest,
+  res: Response,
+  next: NextFunction
+) => {
   try {
-    const { content } = req.body;
+    const parsedBody = updateTweetSchema.safeParse(req.body);
+    if (!parsedBody.success) {
+      const message = parsedBody.error.issues
+        .map((issue) => issue.message)
+        .join(", ");
+      throw new ApiError(400, message || "Invalid tweet payload");
+    }
+
+    const { content } = parsedBody.data;
     const { tweetId } = req.params;
 
     if (!isValidObjectId(tweetId)) {
       throw new ApiError(400, "Invalid tweet id!");
-    }
-
-    if (!content) {
-      throw new ApiError(400, "Content is required!");
     }
 
     const tweet = await Tweet.findOneAndUpdate(
@@ -109,7 +158,13 @@ export const updateTweet = async (req, res, next) => {
   }
 };
 
-export const deleteTweet = async (req, res, next) => {
+type DeleteTweetRequest = AppRequest<{ tweetId: string }, unknown>;
+
+export const deleteTweet = async (
+  req: DeleteTweetRequest,
+  res: Response,
+  next: NextFunction
+) => {
   try {
     const { tweetId } = req.params;
 

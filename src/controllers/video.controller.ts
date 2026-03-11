@@ -1,32 +1,42 @@
 import mongoose, { isValidObjectId } from "mongoose";
+import type { NextFunction, Response } from "express";
 import { Video } from "../models/video.model.js";
 import { Like } from "../models/like.model.js";
 import { Comment } from "../models/comment.model.js";
 import { ApiError } from "../utils/ApiError.js";
+import type { AppRequest } from "../types/request.js";
 import {
   deleteFileFromCloudinary,
   cloudinaryUpload,
 } from "../utils/cloudinary.js";
+import {
+  getAllVideosQuerySchema,
+  publishVideoSchema,
+  updateVideoSchema,
+  videoIdParamSchema,
+} from "../schema/video.schema.js";
 
-export const getAllVideos = async (req, res, next) => {
+type GetAllVideosRequest = AppRequest<Record<string, string>, unknown>;
+
+export const getAllVideos = async (
+  req: GetAllVideosRequest,
+  res: Response,
+  next: NextFunction
+) => {
   try {
-    const {
-      page = 1,
-      limit = 10,
-      query = "",
-      sortBy = "createdAt",
-      sortType = "desc",
-      userId,
-    } = req.query;
-
-    const currentPage = parseInt(page, 10);
-    const perPage = parseInt(limit, 10);
-
-    if (currentPage <= 0 || perPage <= 0) {
-      throw new ApiError(400, "Page and limit must be positive integers!");
+    const parsedQuery = getAllVideosQuerySchema.safeParse(req.query);
+    if (!parsedQuery.success) {
+      const message = parsedQuery.error.issues
+        .map((issue) => issue.message)
+        .join(", ");
+      throw new ApiError(400, message || "Invalid videos query params");
     }
 
-    const filter = {};
+    const { page, limit, query, sortBy, sortType, userId } = parsedQuery.data;
+    const currentPage = page;
+    const perPage = limit;
+
+    const filter: Record<string, unknown> = {};
 
     if (query) {
       filter.$or = [
@@ -39,8 +49,9 @@ export const getAllVideos = async (req, res, next) => {
       filter.owner = userId;
     }
 
-    const sortOptions = {};
-    sortOptions[sortBy] = sortType.toLowerCase() === "asc" ? 1 : -1;
+    const sortOptions: Record<string, 1 | -1> = {
+      [sortBy]: sortType === "asc" ? 1 : -1,
+    };
 
     const videos = await Video.find(filter)
       .sort(sortOptions)
@@ -66,26 +77,45 @@ export const getAllVideos = async (req, res, next) => {
   }
 };
 
-export const publishAVideo = async (req, res, next) => {
-  try {
-    const { title, description, duration, isPublished } = req.body;
+type PublishAVideoRequest = AppRequest<Record<string, string>, unknown>;
 
-    if (!title || !description) {
-      throw new ApiError(400, "Title and description are required!");
+export const publishAVideo = async (
+  req: PublishAVideoRequest,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const parsedBody = publishVideoSchema.safeParse(req.body);
+    if (!parsedBody.success) {
+      const message = parsedBody.error.issues
+        .map((issue) => issue.message)
+        .join(", ");
+      throw new ApiError(400, message || "Invalid publish payload");
     }
 
-    if (!req.files?.video?.[0]?.path || !req.files?.thumbnail?.[0]?.path) {
+    if (!req.user?._id) {
+      throw new ApiError(401, "Unauthorized request");
+    }
+
+    const files = req.files;
+    if (!files || Array.isArray(files)) {
       throw new ApiError(400, "Video and thumbnail files are required!");
     }
 
-    const videolocalPath = req.files.video[0].path;
-    const thumbnailLocalPath = req.files.thumbnail[0].path;
+    const videoLocalPath = files.video?.[0]?.path;
+    const thumbnailLocalPath = files.thumbnail?.[0]?.path;
+
+    if (!videoLocalPath || !thumbnailLocalPath) {
+      throw new ApiError(400, "Video and thumbnail files are required!");
+    }
+
+    const { title, description, duration, isPublished } = parsedBody.data;
 
     let video, thumbnail;
 
     try {
       [video, thumbnail] = await Promise.all([
-        cloudinaryUpload(videolocalPath),
+        cloudinaryUpload(videoLocalPath),
         cloudinaryUpload(thumbnailLocalPath),
       ]);
 
@@ -106,8 +136,8 @@ export const publishAVideo = async (req, res, next) => {
         title,
         description,
         duration,
-        isPublished,
-        owner: req.user.id,
+        isPublished: isPublished ?? true,
+        owner: req.user._id,
       });
 
       return res.status(201).json({
@@ -126,13 +156,23 @@ export const publishAVideo = async (req, res, next) => {
   }
 };
 
-export const getVideoById = async (req, res, next) => {
-  try {
-    const { videoId } = req.params;
+type VideoIdRequest = AppRequest<{ videoId: string }, unknown>;
 
-    if (!videoId) {
-      throw new ApiError(400, "VideoId is required!");
+export const getVideoById = async (
+  req: VideoIdRequest,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const parsedParams = videoIdParamSchema.safeParse(req.params);
+    if (!parsedParams.success) {
+      const message = parsedParams.error.issues
+        .map((issue) => issue.message)
+        .join(", ");
+      throw new ApiError(400, message || "Invalid video ID parameter");
     }
+
+    const { videoId } = parsedParams.data;
 
     if (!isValidObjectId(videoId)) {
       throw new ApiError(400, "Invalid VideoId format!");
@@ -153,24 +193,40 @@ export const getVideoById = async (req, res, next) => {
   }
 };
 
-export const updateVideo = async (req, res, next) => {
-  try {
-    const { videoId } = req.params;
-    const { title, description } = req.body;
+type UpdateVideoRequest = AppRequest<{ videoId: string }, unknown>;
 
-    if (!videoId || !title || !description) {
-      return next(
-        new ApiError(400, "VideoId, title, and description are required!")
-      );
+export const updateVideo = async (
+  req: UpdateVideoRequest,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const parsedParams = videoIdParamSchema.safeParse(req.params);
+    if (!parsedParams.success) {
+      const message = parsedParams.error.issues
+        .map((issue) => issue.message)
+        .join(", ");
+      throw new ApiError(400, message || "Invalid video ID parameter");
     }
 
+    const parsedBody = updateVideoSchema.safeParse(req.body);
+    if (!parsedBody.success) {
+      const message = parsedBody.error.issues
+        .map((issue) => issue.message)
+        .join(", ");
+      throw new ApiError(400, message || "Invalid update payload");
+    }
+
+    const { videoId } = parsedParams.data;
+    const { title, description } = parsedBody.data;
+
     if (!isValidObjectId(videoId)) {
-      return next(new ApiError(400, "Invalid Video ID!"));
+      throw new ApiError(400, "Invalid Video ID!");
     }
 
     const video = await Video.findById(videoId);
     if (!video) {
-      return next(new ApiError(404, "Video not found!"));
+      throw new ApiError(404, "Video not found!");
     }
 
     let thumbnailUrl = video.thumbnail;
@@ -178,7 +234,7 @@ export const updateVideo = async (req, res, next) => {
     if (req.file && req.file.path) {
       const uploadedThumbnail = await cloudinaryUpload(req.file.path);
       if (!uploadedThumbnail) {
-        return next(new ApiError(500, "Error uploading new thumbnail!"));
+        throw new ApiError(500, "Error uploading new thumbnail!");
       }
 
       const deleteThumbnailResult = await deleteFileFromCloudinary(
@@ -186,8 +242,9 @@ export const updateVideo = async (req, res, next) => {
       );
 
       if (!deleteThumbnailResult || deleteThumbnailResult.result !== "ok") {
-        return next(
-          new ApiError(500, "Error deleting the old thumbnail from Cloudinary!")
+        throw new ApiError(
+          500,
+          "Error deleting the old thumbnail from Cloudinary!"
         );
       }
 
@@ -218,14 +275,26 @@ export const updateVideo = async (req, res, next) => {
   }
 };
 
-export const deleteVideo = async (req, res, next) => {
-  const { videoId } = req.params;
-
-  if (!videoId) {
-    throw new ApiError(400, "Video ID is required!");
-  }
-
+export const deleteVideo = async (
+  req: VideoIdRequest,
+  res: Response,
+  next: NextFunction
+) => {
   try {
+    const parsedParams = videoIdParamSchema.safeParse(req.params);
+    if (!parsedParams.success) {
+      const message = parsedParams.error.issues
+        .map((issue) => issue.message)
+        .join(", ");
+      throw new ApiError(400, message || "Invalid video ID parameter");
+    }
+
+    const { videoId } = parsedParams.data;
+
+    if (!isValidObjectId(videoId)) {
+      throw new ApiError(400, "Invalid Video ID!");
+    }
+
     const video = await Video.findById(videoId);
 
     if (!video) {
@@ -247,7 +316,7 @@ export const deleteVideo = async (req, res, next) => {
 
     const [likesResult, commentsResult] = await Promise.all([
       Like.deleteMany({ video: videoId }),
-      Comment.deleteMany({ video: videoId }),
+      Comment.deleteMany({ contentId: videoId, contentType: "Video" }),
     ]);
 
     await Video.findByIdAndDelete(videoId);
@@ -264,12 +333,24 @@ export const deleteVideo = async (req, res, next) => {
   }
 };
 
-export const togglePublishStatus = async (req, res, next) => {
+export const togglePublishStatus = async (
+  req: VideoIdRequest,
+  res: Response,
+  next: NextFunction
+) => {
   try {
-    const { videoId } = req.params;
+    const parsedParams = videoIdParamSchema.safeParse(req.params);
+    if (!parsedParams.success) {
+      const message = parsedParams.error.issues
+        .map((issue) => issue.message)
+        .join(", ");
+      throw new ApiError(400, message || "Invalid video ID parameter");
+    }
 
-    if (!videoId) {
-      throw new ApiError(400, "VideoId is required!");
+    const { videoId } = parsedParams.data;
+
+    if (!isValidObjectId(videoId)) {
+      throw new ApiError(400, "Invalid Video ID!");
     }
 
     const video = await Video.findById(videoId);
@@ -293,18 +374,30 @@ export const togglePublishStatus = async (req, res, next) => {
   }
 };
 
-export const incrementVideoView = async (req, res, next) => {
+export const incrementVideoView = async (
+  req: VideoIdRequest,
+  res: Response,
+  next: NextFunction
+) => {
   try {
-    const { videoId } = req.params;
+    const parsedParams = videoIdParamSchema.safeParse(req.params);
+    if (!parsedParams.success) {
+      const message = parsedParams.error.issues
+        .map((issue) => issue.message)
+        .join(", ");
+      throw new ApiError(400, message || "Invalid video ID parameter");
+    }
+
+    const { videoId } = parsedParams.data;
 
     if (!videoId || !isValidObjectId(videoId)) {
-      return next(new ApiError(400, "Invalid or missing Video ID."));
+      throw new ApiError(400, "Invalid or missing Video ID.");
     }
 
     const video = await Video.findById(videoId);
 
     if (!video) {
-      return next(new ApiError(404, "Video not found."));
+      throw new ApiError(404, "Video not found.");
     }
 
     video.views += 1;

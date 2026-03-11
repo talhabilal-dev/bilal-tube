@@ -6,7 +6,9 @@
   "main": "dist/index.js",
   "scripts": {
     "dev": "tsx src/index.ts",
-    "lint": "prettier --write src/**/*.{ts,js}"
+    "lint": "prettier --write src/**/*.{ts,js}",
+    "build": "tsc",
+    "start": "node dist/index.js"
   },
   "repository": {
     "type": "git",

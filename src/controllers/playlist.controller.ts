@@ -1,15 +1,38 @@
-import { isValidObjectId } from "mongoose";
+import mongoose, { isValidObjectId } from "mongoose";
+import type { NextFunction, Response } from "express";
 import { Playlist } from "../models/playlist.model.js";
 import { Video } from "../models/video.model.js";
 import { ApiError } from "../utils/ApiError.js";
+import type { AppRequest } from "../types/request.js";
+import {
+  createPlaylistSchema,
+  playlistIdParamSchema,
+  playlistVideoParamsSchema,
+  updatePlaylistSchema,
+  userIdParamSchema,
+} from "../schema/playlist.schema.js";
 
-export const createPlaylist = async (req, res, next) => {
+type CreatePlaylistRequest = AppRequest<Record<string, string>, unknown>;
+
+export const createPlaylist = async (
+  req: CreatePlaylistRequest,
+  res: Response,
+  next: NextFunction
+) => {
   try {
-    const { name, description } = req.body;
-
-    if (!name || !description) {
-      throw new ApiError(400, "Name and description are required!");
+    const parsedBody = createPlaylistSchema.safeParse(req.body);
+    if (!parsedBody.success) {
+      const message = parsedBody.error.issues
+        .map((issue) => issue.message)
+        .join(", ");
+      throw new ApiError(400, message || "Invalid playlist payload");
     }
+
+    if (!req.user?._id) {
+      throw new ApiError(401, "Unauthorized request");
+    }
+
+    const { name, description } = parsedBody.data;
 
     const playlist = await Playlist.create({
       name,
@@ -30,9 +53,23 @@ export const createPlaylist = async (req, res, next) => {
   }
 };
 
-export const getUserPlaylists = async (req, res, next) => {
+type GetUserPlaylistsRequest = AppRequest<{ userId: string }, unknown>;
+
+export const getUserPlaylists = async (
+  req: GetUserPlaylistsRequest,
+  res: Response,
+  next: NextFunction
+) => {
   try {
-    const { userId } = req.params;
+    const parsedParams = userIdParamSchema.safeParse(req.params);
+    if (!parsedParams.success) {
+      const message = parsedParams.error.issues
+        .map((issue) => issue.message)
+        .join(", ");
+      throw new ApiError(400, message || "Invalid user ID parameter");
+    }
+
+    const { userId } = parsedParams.data;
 
     if (!isValidObjectId(userId)) {
       throw new ApiError(400, "Invalid userId format!");
@@ -53,9 +90,23 @@ export const getUserPlaylists = async (req, res, next) => {
   }
 };
 
-export const getPlaylistById = async (req, res, next) => {
+type GetPlaylistByIdRequest = AppRequest<{ playlistId: string }, unknown>;
+
+export const getPlaylistById = async (
+  req: GetPlaylistByIdRequest,
+  res: Response,
+  next: NextFunction
+) => {
   try {
-    const { playlistId } = req.params;
+    const parsedParams = playlistIdParamSchema.safeParse(req.params);
+    if (!parsedParams.success) {
+      const message = parsedParams.error.issues
+        .map((issue) => issue.message)
+        .join(", ");
+      throw new ApiError(400, message || "Invalid playlist ID parameter");
+    }
+
+    const { playlistId } = parsedParams.data;
 
     if (!isValidObjectId(playlistId)) {
       throw new ApiError(400, "Invalid playlistId format!");
@@ -76,9 +127,26 @@ export const getPlaylistById = async (req, res, next) => {
   }
 };
 
-export const addVideoToPlaylist = async (req, res, next) => {
+type AddVideoToPlaylistRequest = AppRequest<
+  { playlistId: string; videoId: string },
+  unknown
+>;
+
+export const addVideoToPlaylist = async (
+  req: AddVideoToPlaylistRequest,
+  res: Response,
+  next: NextFunction
+) => {
   try {
-    const { playlistId, videoId } = req.params;
+    const parsedParams = playlistVideoParamsSchema.safeParse(req.params);
+    if (!parsedParams.success) {
+      const message = parsedParams.error.issues
+        .map((issue) => issue.message)
+        .join(", ");
+      throw new ApiError(400, message || "Invalid playlist/video parameters");
+    }
+
+    const { playlistId, videoId } = parsedParams.data;
 
     if (!isValidObjectId(playlistId) || !isValidObjectId(videoId)) {
       throw new ApiError(400, "Invalid playlistId or videoId format!");
@@ -90,7 +158,11 @@ export const addVideoToPlaylist = async (req, res, next) => {
       throw new ApiError(404, "Playlist not found!");
     }
 
-    if (playlist.videos.includes(videoId)) {
+    if (
+      playlist.videos.some(
+        (playlistVideoId) => String(playlistVideoId) === videoId
+      )
+    ) {
       throw new ApiError(400, "Video is already in the playlist!");
     }
 
@@ -100,7 +172,7 @@ export const addVideoToPlaylist = async (req, res, next) => {
       throw new ApiError(404, "Video not found!");
     }
 
-    playlist.videos.push(videoId);
+    playlist.videos.push(new mongoose.Types.ObjectId(videoId));
     await playlist.save();
 
     res.status(200).json({
@@ -112,9 +184,26 @@ export const addVideoToPlaylist = async (req, res, next) => {
   }
 };
 
-export const removeVideoFromPlaylist = async (req, res, next) => {
+type RemoveVideoFromPlaylistRequest = AppRequest<
+  { playlistId: string; videoId: string },
+  unknown
+>;
+
+export const removeVideoFromPlaylist = async (
+  req: RemoveVideoFromPlaylistRequest,
+  res: Response,
+  next: NextFunction
+) => {
   try {
-    const { playlistId, videoId } = req.params;
+    const parsedParams = playlistVideoParamsSchema.safeParse(req.params);
+    if (!parsedParams.success) {
+      const message = parsedParams.error.issues
+        .map((issue) => issue.message)
+        .join(", ");
+      throw new ApiError(400, message || "Invalid playlist/video parameters");
+    }
+
+    const { playlistId, videoId } = parsedParams.data;
 
     if (!isValidObjectId(playlistId) || !isValidObjectId(videoId)) {
       throw new ApiError(400, "Invalid playlistId or videoId format!");
@@ -151,9 +240,23 @@ export const removeVideoFromPlaylist = async (req, res, next) => {
   }
 };
 
-export const deletePlaylist = async (req, res, next) => {
+type DeletePlaylistRequest = AppRequest<{ playlistId: string }, unknown>;
+
+export const deletePlaylist = async (
+  req: DeletePlaylistRequest,
+  res: Response,
+  next: NextFunction
+) => {
   try {
-    const { playlistId } = req.params;
+    const parsedParams = playlistIdParamSchema.safeParse(req.params);
+    if (!parsedParams.success) {
+      const message = parsedParams.error.issues
+        .map((issue) => issue.message)
+        .join(", ");
+      throw new ApiError(400, message || "Invalid playlist ID parameter");
+    }
+
+    const { playlistId } = parsedParams.data;
 
     if (!isValidObjectId(playlistId)) {
       throw new ApiError(400, "Invalid playlistId format!");
@@ -179,17 +282,35 @@ export const deletePlaylist = async (req, res, next) => {
   }
 };
 
-export const updatePlaylist = async (req, res, next) => {
+type UpdatePlaylistRequest = AppRequest<{ playlistId: string }, unknown>;
+
+export const updatePlaylist = async (
+  req: UpdatePlaylistRequest,
+  res: Response,
+  next: NextFunction
+) => {
   try {
-    const { playlistId } = req.params;
-    const { name, description } = req.body;
+    const parsedParams = playlistIdParamSchema.safeParse(req.params);
+    if (!parsedParams.success) {
+      const message = parsedParams.error.issues
+        .map((issue) => issue.message)
+        .join(", ");
+      throw new ApiError(400, message || "Invalid playlist ID parameter");
+    }
+
+    const parsedBody = updatePlaylistSchema.safeParse(req.body);
+    if (!parsedBody.success) {
+      const message = parsedBody.error.issues
+        .map((issue) => issue.message)
+        .join(", ");
+      throw new ApiError(400, message || "Invalid playlist payload");
+    }
+
+    const { playlistId } = parsedParams.data;
+    const { name, description } = parsedBody.data;
 
     if (!isValidObjectId(playlistId)) {
       throw new ApiError(400, "Invalid playlistId format!");
-    }
-
-    if (!name || !description) {
-      throw new ApiError(400, "Name and description are required!");
     }
 
     const playlist = await Playlist.findById(playlistId);

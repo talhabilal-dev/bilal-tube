@@ -1,16 +1,33 @@
 import mongoose, { isValidObjectId } from "mongoose";
+import type { NextFunction, Response } from "express";
+import { z } from "zod";
 import { Video } from "../models/video.model.js";
 import { Subscription } from "../models/subscription.model.js";
 import { Like } from "../models/like.model.js";
 import { ApiError } from "../utils/ApiError.js";
+import type { AppRequest } from "../types/request.js";
+import {
+  channelIdParamSchema,
+  channelVideosQuerySchema,
+} from "../schema/dashboard.schema.js";
 
-export const getChannelStats = async (req, res, next) => {
+type GetChannelStatsRequest = AppRequest<{ channelId: string }, unknown>;
+
+export const getChannelStats = async (
+  req: GetChannelStatsRequest,
+  res: Response,
+  next: NextFunction
+) => {
   try {
-    const { channelId } = req.params;
-
-    if (!channelId) {
-      throw new ApiError(400, "Channel ID is required.");
+    const parsedParams = channelIdParamSchema.safeParse(req.params);
+    if (!parsedParams.success) {
+      const message = parsedParams.error.issues
+        .map((issue) => issue.message)
+        .join(", ");
+      throw new ApiError(400, message || "Invalid channel ID parameter");
     }
+
+    const { channelId } = parsedParams.data;
 
     if (!isValidObjectId(channelId)) {
       throw new ApiError(400, "Invalid Channel ID format.");
@@ -45,24 +62,41 @@ export const getChannelStats = async (req, res, next) => {
   }
 };
 
-export const getChannelVideos = async (req, res, next) => {
-  try {
-    const { channelId } = req.params;
-    const {
-      page = 1,
-      limit = 10,
-      sortBy = "createdAt",
-      sortType = "desc",
-    } = req.query;
+type GetChannelVideosRequest = AppRequest<{ channelId: string }, unknown>;
 
-    if (!mongoose.Types.ObjectId.isValid(channelId) || !channelId) {
+export const getChannelVideos = async (
+  req: GetChannelVideosRequest,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const parsedParams = channelIdParamSchema.safeParse(req.params);
+    if (!parsedParams.success) {
+      const message = parsedParams.error.issues
+        .map((issue) => issue.message)
+        .join(", ");
+      throw new ApiError(400, message || "Invalid channel ID parameter");
+    }
+
+    const parsedQuery = channelVideosQuerySchema.safeParse(req.query);
+    if (!parsedQuery.success) {
+      const message = parsedQuery.error.issues
+        .map((issue) => issue.message)
+        .join(", ");
+      throw new ApiError(400, message || "Invalid query parameters");
+    }
+
+    const { channelId } = parsedParams.data;
+    const { page, limit, sortBy, sortType } = parsedQuery.data;
+
+    if (!mongoose.Types.ObjectId.isValid(channelId)) {
       throw new ApiError(400, "Invalid Channel ID format.");
     }
 
-    const currentPage = parseInt(page);
-    const perPage = parseInt(limit);
+    const currentPage = page;
+    const perPage = limit;
 
-    const sortOptions = {
+    const sortOptions: Record<string, 1 | -1> = {
       [sortBy]: sortType === "desc" ? -1 : 1,
     };
 

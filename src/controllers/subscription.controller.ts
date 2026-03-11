@@ -1,12 +1,44 @@
 import mongoose, { isValidObjectId } from "mongoose";
-import { User } from "../models/user.model.js";
+import type { NextFunction, Response } from "express";
 import { Subscription } from "../models/subscription.model.js";
 import { ApiError } from "../utils/ApiError.js";
+import type { AppRequest } from "../types/request.js";
+import {
+  channelIdParamSchema,
+  subscriberIdParamSchema,
+} from "../schema/subscription.schema.js";
 
-export const toggleSubscription = async (req, res, next) => {
+type ToggleSubscriptionRequest = AppRequest<{ channelId: string }, unknown>;
+
+export const toggleSubscription = async (
+  req: ToggleSubscriptionRequest,
+  res: Response,
+  next: NextFunction
+) => {
   try {
-    const { channelId } = req.params;
-    const userId = req.user._id;
+    const parsedParams = channelIdParamSchema.safeParse(req.params);
+    if (!parsedParams.success) {
+      const message = parsedParams.error.issues
+        .map((issue) => issue.message)
+        .join(", ");
+      throw new ApiError(400, message || "Invalid channel ID parameter");
+    }
+
+    const { channelId } = parsedParams.data;
+
+    if (!req.user?._id) {
+      throw new ApiError(401, "Unauthorized request");
+    }
+
+    const userId = String(req.user._id);
+
+    if (!isValidObjectId(channelId)) {
+      throw new ApiError(400, "Invalid Channel ID format.");
+    }
+
+    if (channelId === userId) {
+      throw new ApiError(400, "You cannot subscribe to your own channel");
+    }
 
     let subscription = await Subscription.findOne({
       subscriber: userId,
@@ -33,9 +65,26 @@ export const toggleSubscription = async (req, res, next) => {
   }
 };
 
-export const getUserChannelSubscribers = async (req, res, next) => {
+type GetUserChannelSubscribersRequest = AppRequest<
+  { channelId: string },
+  unknown
+>;
+
+export const getUserChannelSubscribers = async (
+  req: GetUserChannelSubscribersRequest,
+  res: Response,
+  next: NextFunction
+) => {
   try {
-    const { channelId } = req.params;
+    const parsedParams = channelIdParamSchema.safeParse(req.params);
+    if (!parsedParams.success) {
+      const message = parsedParams.error.issues
+        .map((issue) => issue.message)
+        .join(", ");
+      throw new ApiError(400, message || "Invalid channel ID parameter");
+    }
+
+    const { channelId } = parsedParams.data;
 
     if (!isValidObjectId(channelId)) {
       throw new ApiError(400, "Invalid Channel ID format.");
@@ -68,8 +117,6 @@ export const getUserChannelSubscribers = async (req, res, next) => {
 
     const subscribers = await Subscription.aggregate(aggregationPipeline);
 
-    console.log(subscribers);
-
     if (subscribers.length === 0) {
       throw new ApiError(404, "No subscribers found");
     }
@@ -83,9 +130,26 @@ export const getUserChannelSubscribers = async (req, res, next) => {
   }
 };
 
-export const getSubscribedChannels = async (req, res, next) => {
+type GetSubscribedChannelsRequest = AppRequest<
+  { subscriberId: string },
+  unknown
+>;
+
+export const getSubscribedChannels = async (
+  req: GetSubscribedChannelsRequest,
+  res: Response,
+  next: NextFunction
+) => {
   try {
-    const { subscriberId } = req.params;
+    const parsedParams = subscriberIdParamSchema.safeParse(req.params);
+    if (!parsedParams.success) {
+      const message = parsedParams.error.issues
+        .map((issue) => issue.message)
+        .join(", ");
+      throw new ApiError(400, message || "Invalid subscriber ID parameter");
+    }
+
+    const { subscriberId } = parsedParams.data;
 
     if (!subscriberId || isValidObjectId(subscriberId) === false) {
       throw new ApiError(400, "Valid subscriber ID is required");

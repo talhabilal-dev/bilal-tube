@@ -1,14 +1,11 @@
-import { configDotenv } from "dotenv";
-configDotenv({
-  path: "./.env",
-});
 import { connectDB } from "./config/db.config.js";
 import app from "./app.js";
+import { ENV } from "./config/env.config.js";
 
 connectDB()
   .then(() => {
-    app.listen(process.env.PORT || 3000, () => {
-      console.log(`Server is running on port ${process.env.PORT || 3000}`);
+    app.listen(ENV.PORT, () => {
+      console.log(`Server is running on port ${ENV.PORT}`);
     });
   })
   .catch((error) => {
@@ -17,5 +14,4 @@ connectDB()
     } else {
       throw new Error("Error connecting to MongoDB");
     }
-
   });

@@ -9,7 +9,7 @@ import {
 } from "../controllers/comment.controller.js";
 import { authMiddleware } from "../middlewares/auth.middleware.js";
 
-const router = Router();
+const router : Router = Router();
 
 router.use(authMiddleware);
 

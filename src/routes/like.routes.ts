@@ -7,7 +7,7 @@ import {
 } from "../controllers/like.controller.js";
 import { authMiddleware } from "../middlewares/auth.middleware.js";
 
-const router = Router();
+const router : Router = Router();
 router.use(authMiddleware);
 
 router.route("/toggle/v/:videoId").post(toggleVideoLike);

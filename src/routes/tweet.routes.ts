@@ -7,7 +7,7 @@ import {
 } from "../controllers/tweet.controller.js";
 import { authMiddleware } from "../middlewares/auth.middleware.js";
 
-const router = Router();
+const router : Router = Router();
 router.use(authMiddleware);
 
 router.route("/").post(createTweet);
