@@ -32,8 +32,8 @@ COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/dist ./dist
 COPY --from=build /app/public ./public
 
-RUN useradd -m tickmate
-USER tickmate
+RUN useradd -m bilatube
+USER bilatube
 
 EXPOSE 3000
 
