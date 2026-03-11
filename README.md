@@ -98,6 +98,105 @@ pnpm build
 pnpm start
 ```
 
+## Docker Setup (Step by Step)
+
+This project includes a production-ready multi-stage `Dockerfile`.
+
+### 1. Install Docker
+
+Use the official Docker installation docs for your OS:
+
+- https://docs.docker.com/engine/install/
+
+Quick check after installation:
+
+```bash
+docker --version
+```
+
+### 2. Prepare Environment Variables
+
+Create a `.env` file in the project root (same directory as `Dockerfile`).
+
+Minimum required values:
+
+```env
+PORT=3000
+MONGO_URI=mongodb://host.docker.internal:27017/bilal-tube
+
+CLIENT_URL=http://localhost:5173
+OPENAPI_SERVER_URLS=http://localhost:3000
+
+ACCESS_TOKEN_SECRET=your_access_token_secret
+ACCESS_TOKEN_EXPIRY=1d
+REFRESH_TOKEN_SECRET=your_refresh_token_secret
+REFRESH_TOKEN_EXPIRY=7d
+
+CLOUD_NAME=your_cloudinary_cloud_name
+CLOUDINARY_API_KEY=your_cloudinary_api_key
+CLOUDINARY_API_SECRET=your_cloudinary_api_secret
+
+NODE_ENV=production
+```
+
+Note:
+
+- `host.docker.internal` is useful when MongoDB runs on your host machine.
+- On Linux, if `host.docker.internal` is unavailable, use your host IP.
+
+### 3. Build Docker Image
+
+From the project root:
+
+```bash
+docker build -t bilal-tube-backend:latest .
+```
+
+### 4. Run Container
+
+```bash
+docker run -d \
+  --name bilal-tube-backend \
+  --env-file .env \
+  -p 3000:3000 \
+  bilal-tube-backend:latest
+```
+
+### 5. Verify the App Is Running
+
+Check container status:
+
+```bash
+docker ps
+```
+
+Check logs:
+
+```bash
+docker logs -f bilal-tube-backend
+```
+
+Test health endpoint:
+
+```bash
+curl http://localhost:3000/api/v1/healthcheck
+```
+
+### 6. Stop and Remove Container
+
+```bash
+docker stop bilal-tube-backend
+docker rm bilal-tube-backend
+```
+
+### 7. Rebuild After Code Changes
+
+```bash
+docker build -t bilal-tube-backend:latest .
+docker stop bilal-tube-backend && docker rm bilal-tube-backend
+docker run -d --name bilal-tube-backend --env-file .env -p 3000:3000 bilal-tube-backend:latest
+```
+
 ## Scripts
 
 - `pnpm dev` -> Run with `tsx` in development
@@ -110,11 +209,11 @@ pnpm start
 Create `.env` and set these values:
 
 ```env
-PORT=8000
+PORT=3000
 MONGO_URI=mongodb://localhost:27017/bilal-tube
 
 CLIENT_URL=http://localhost:5173
-OPENAPI_SERVER_URLS=http://localhost:8000,https://api.example.com
+OPENAPI_SERVER_URLS=http://localhost:3000,https://api.example.com
 
 ACCESS_TOKEN_SECRET=your_access_token_secret
 ACCESS_TOKEN_EXPIRY=1d
@@ -131,7 +230,7 @@ NODE_ENV=development
 Notes:
 
 - `OPENAPI_SERVER_URLS` accepts multiple comma-separated URLs.
-- If `OPENAPI_SERVER_URLS` is not set, docs default to `http://localhost:8000`.
+- If `OPENAPI_SERVER_URLS` is not set, docs default to `http://localhost:3000`.
 
 ## API Base URL
 
@@ -144,8 +243,8 @@ Notes:
 
 Example local URLs:
 
-- `http://localhost:8000/api-docs`
-- `http://localhost:8000/openapi.json`
+- `http://localhost:3000/api-docs`
+- `http://localhost:3000/openapi.json`
 
 ## Route Groups
 
