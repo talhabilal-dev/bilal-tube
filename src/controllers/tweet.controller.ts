@@ -141,7 +141,7 @@ export const updateTweet = async (
     const tweet = await Tweet.findOneAndUpdate(
       { _id: tweetId },
       { $set: { content } },
-      { new: true }
+      { returnDocument: "after" }
     );
 
     if (!tweet) {

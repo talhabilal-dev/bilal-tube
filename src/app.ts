@@ -26,6 +26,7 @@ import likeRouter from "./routes/like.routes.js";
 import playlistRouter from "./routes/playlist.routes.js";
 import dashboardRouter from "./routes/dashboard.routes.js";
 import { errorHandler } from "./middlewares/errorHandler.middleware.js";
+import { setupSwagger } from "./docs/swagger.js";
 
 app.get("/", (req, res) => {
   res.send("Welcome to my YouTube-like backend!");
@@ -39,6 +40,9 @@ app.use("/api/v1/comments", commentRouter);
 app.use("/api/v1/likes", likeRouter);
 app.use("/api/v1/playlist", playlistRouter);
 app.use("/api/v1/dashboard", dashboardRouter);
+
+setupSwagger(app);
+
 app.use(errorHandler);
 
 export default app;

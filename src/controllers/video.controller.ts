@@ -263,7 +263,7 @@ export const updateVideo = async (
           thumbnail: thumbnailUrl,
         },
       },
-      { new: true }
+      { returnDocument: "after" }
     );
 
     res.status(200).json({
@@ -362,7 +362,7 @@ export const togglePublishStatus = async (
     const updatedVideo = await Video.findByIdAndUpdate(
       videoId,
       { $set: { isPublished: !video.isPublished } },
-      { new: true }
+      { returnDocument: "after" }
     );
 
     res.status(200).json({

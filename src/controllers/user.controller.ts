@@ -224,7 +224,7 @@ export const logOutUser = async (
         },
       },
       {
-        new: true,
+        returnDocument: "after",
       }
     );
 
@@ -440,7 +440,7 @@ export const updateAccountDetails = async (
           fullName,
         },
       },
-      { new: true }
+      { returnDocument: "after" }
     ).select("-password -refreshToken");
 
     if (!updatedUser) {
@@ -491,7 +491,7 @@ export const updateAvatar = async (
           },
         },
       },
-      { new: true }
+      { returnDocument: "after" }
     ).select("-password -refreshToken");
 
     if (!user) {
@@ -558,7 +558,7 @@ export const updateCoverImage = async (
           },
         },
       },
-      { new: true }
+      { returnDocument: "after" }
     ).select("-password -refreshToken");
 
     if (!user) {

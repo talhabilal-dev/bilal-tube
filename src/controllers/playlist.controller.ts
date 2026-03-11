@@ -224,7 +224,7 @@ export const removeVideoFromPlaylist = async (
     const updatedPlaylist = await Playlist.findByIdAndUpdate(
       playlistId,
       { $pull: { videos: videoId } },
-      { new: true }
+      { returnDocument: "after" }
     );
 
     if (!updatedPlaylist) {
@@ -322,7 +322,7 @@ export const updatePlaylist = async (
     const updatedPlaylist = await Playlist.findByIdAndUpdate(
       playlistId,
       { $set: { name, description } },
-      { new: true }
+      { returnDocument: "after" }
     );
 
     if (!updatedPlaylist) {
