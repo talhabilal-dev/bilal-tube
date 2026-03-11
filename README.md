@@ -84,14 +84,14 @@ src/
 pnpm install
 ```
 
-3. Create `.env` in project root.
-4. Run development server:
+1. Create `.env` in project root.
+2. Run development server:
 
 ```bash
 pnpm dev
 ```
 
-5. Build and run production:
+1. Build and run production:
 
 ```bash
 pnpm build
