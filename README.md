@@ -46,6 +46,11 @@ In short, this project is a backend engineering showcase that balances learning 
 - File uploads with Multer + Cloudinary
 - OpenAPI docs powered by Zod schemas and Swagger UI
 
+## Api Documentation
+
+- Swagger UI: `/api-docs`
+![OpenAPI Docs Page](https://res.cloudinary.com/dvdktrhsz/image/upload/v1773220390/Screenshot_2026-03-11_at_13-56-42_Swagger_UI_dlcpex.png)
+
 ## Tech Stack
 
 - Runtime: Node.js
@@ -106,7 +111,7 @@ This project includes a production-ready multi-stage `Dockerfile`.
 
 Use the official Docker installation docs for your OS:
 
-- https://docs.docker.com/engine/install/
+- <https://docs.docker.com/engine/install/>
 
 Quick check after installation:
 
